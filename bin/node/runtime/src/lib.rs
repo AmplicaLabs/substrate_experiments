@@ -1490,6 +1490,18 @@ impl pallet_whitelist::Config for Runtime {
 }
 
 parameter_types! {
+	pub const MaxNodes: u32 = 100000000;  // 100M
+	pub const MaxFollows: u32 = 20000; // per user
+}
+
+impl pallet_graph::Config for Runtime {
+	type Event = Event;
+	type MaxNodes = MaxNodes;
+	type MaxFollows = MaxFollows;
+	type WeightInfo = pallet_graph::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
 	pub const MigrationSignedDepositPerItem: Balance = 1 * CENTS;
 	pub const MigrationSignedDepositBase: Balance = 20 * DOLLARS;
 	pub const MigrationMaxKeyLen: u32 = 512;
@@ -1633,6 +1645,7 @@ construct_runtime!(
 		NominationPools: pallet_nomination_pools,
 		RankedPolls: pallet_referenda::<Instance2>,
 		RankedCollective: pallet_ranked_collective,
+		Graph: pallet_graph,
 	}
 );
 
@@ -1738,6 +1751,7 @@ mod benches {
 		[pallet_utility, Utility]
 		[pallet_vesting, Vesting]
 		[pallet_whitelist, Whitelist]
+		[pallet_graph, Graph]
 	);
 }
 

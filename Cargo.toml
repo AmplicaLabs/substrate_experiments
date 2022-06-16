@@ -72,6 +72,7 @@ members = [
 	"frame/authority-discovery",
 	"frame/authorship",
 	"frame/babe",
+	"frame/graph",
 	"frame/bags-list",
 	"frame/bags-list/fuzzer",
 	"frame/bags-list/remote-tests",

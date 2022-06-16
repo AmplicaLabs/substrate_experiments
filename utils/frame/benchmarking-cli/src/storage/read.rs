@@ -22,6 +22,9 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT},
 };
+use frame_support::{
+	storage::{child::ChildInfo},
+};
 
 use log::info;
 use rand::prelude::*;
@@ -44,6 +47,7 @@ impl StorageCmd {
 		let block = BlockId::Number(client.usage_info().chain.best_number);
 
 		info!("Preparing keys from block {}", block);
+		let child_prefix = ":child_storage:default:".as_bytes();
 		// Load all keys and randomly shuffle them.
 		let empty_prefix = StorageKey(Vec::new());
 		let mut keys = client.storage_keys(&block, &empty_prefix)?;
@@ -53,14 +57,46 @@ impl StorageCmd {
 		// Interesting part here:
 		// Read all the keys in the database and measure the time it takes to access each.
 		info!("Reading {} keys", keys.len());
+		let mut count = 0u64;
+		let mut child_keys: Vec<(ChildInfo, StorageKey)> = Vec::new();
 		for key in keys.clone() {
+			if key.clone().0.starts_with(child_prefix) {
+				let trie_id = key.0.strip_prefix(child_prefix);
+				let info = ChildInfo::new_default(trie_id.unwrap());
+				let my_keys = client.child_storage_keys(&block, &info, &empty_prefix)?;
+				for k in my_keys {
+					child_keys.push((info.clone(), k));
+				}
+			}
+
 			let start = Instant::now();
 			let v = client
 				.storage(&block, &key)
 				.expect("Checked above to exist")
 				.ok_or("Value unexpectedly empty")?;
 			record.append(v.0.len(), start.elapsed())?;
+
+			count +=1;
+			if count % 100_000 == 0 {
+				info!("{}", count)
+			}
 		}
+
+		info!("Reading {} child keys", child_keys.len());
+		for (info, key) in child_keys.clone() {
+			let start = Instant::now();
+			let v = client
+				.child_storage(&block, &info, &key)
+				.expect("Checked above to exist")
+				.ok_or("Value unexpectedly empty")?;
+			record.append(v.0.len(), start.elapsed())?;
+
+			count +=1;
+			if count % 100_000 == 0 {
+				info!("{}", count)
+			}
+		}
+
 		Ok(record)
 	}
 }
