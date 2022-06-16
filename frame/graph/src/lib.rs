@@ -110,58 +110,29 @@ pub mod pallet {
 	}
 
 	#[pallet::genesis_config]
-	pub struct GenesisConfig {}
+	pub struct GenesisConfig {
+		pub structure: u8,   // 0 = DoubleMap , 1 = Adj list , 2 = child trees
+		pub nodes: u32,
+		pub edges: u32,
+	}
 
 	#[cfg(feature = "std")]
 	impl Default for GenesisConfig {
 		fn default() -> Self {
-			Self {}
+			Self {
+				structure: 2,
+				nodes: 2_000_000,
+				edges: 300,
+			}
 		}
 	}
-
-	// #[pallet::genesis_build]
-	// impl<T: Config> GenesisBuild<T> for GenesisConfig {
-	// 	fn build(&self) {
-	// 		log::info!("start list");
-	// 		let nodes: u32 = 1_000_000;
-	// 		let edges: u32 = 100;
-
-	// 		let mut node_count: u64 = 0;
-	// 		for n in 0..nodes {
-	// 			if n % 100_000 == 0 {
-	// 				log::info!("Nodes added: {:?}", n);
-	// 			}
-	// 			<Nodes<T>>::insert(n as MessageSenderId, Node {});
-	// 			node_count += 1;
-	// 		}
-	// 		<NodeCount<T>>::set(node_count);
-
-	// 		let mut edge_count: u64 = 0;
-
-	// 		for n in 0..nodes {
-	// 			if n % 100_000 == 0 {
-	// 				log::info!("Edges added: {:?}", n);
-	// 			}
-
-	// 			let from_static_id: MessageSenderId = n as MessageSenderId;
-
-	// 			for e in 0..edges {
-	// 				let ed = (n + e + 1) % nodes;
-	// 				<Graph2<T>>::insert(from_static_id, ed as MessageSenderId, Permission { data: 0 });
-	// 				edge_count += 1;
-	// 			}
-	// 		}
-	// 		<EdgeCount<T>>::set(edge_count);
-	// 		log::info!("end list");
-	// 	}
-	// }
 
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig {
 		fn build(&self) {
-			log::info!("start list");
-			let nodes: u32 = 20;
-			let edges: u32 = 10;
+			log::info!("starting genesis structure {} nodes {} edges {}",self.structure, self.nodes, self.edges);
+			let nodes: u32 = self.nodes;
+			let edges: u32 = self.edges;
 
 			let mut node_count: u64 = 0;
 			let mut map = BTreeMap::new();
@@ -187,18 +158,52 @@ pub mod pallet {
 
 				let from_static_id: MessageSenderId = n as MessageSenderId;
 
-				for e in 0..edges {
-					let ed = (n + e + 1) % nodes;
-					let to_static_id = ed as MessageSenderId;
+				if self.structure == 0 {
+					// double map
+					for e in 0..edges {
+						let ed = (n + e + 1) % nodes;
+						<Graph2<T>>::insert(from_static_id, ed as MessageSenderId, Permission { data: 0 });
+						edge_count += 1;
+					}
+				} else if self.structure == 1 {
+					// adj list
+					let mut list: Vec<Edge> = sp_std::vec::Vec::new();
 
-					let data = Permission { data: 1 };
-					Storage::<T>::write(
-						map.get(&from_static_id).unwrap(),
-						&Pallet::<T>::get_storage_key(to_static_id),
-						Some(data.encode().to_vec()),
-					);
-					edge_count += 1;
+					for e in 0..edges {
+						let ed = (n + e + 1) % nodes;
+						let edge = Edge {
+							static_id: ed as MessageSenderId,
+							permission: Permission { data: 0 },
+						};
+						match list.binary_search(&edge) {
+							Ok(_) => Err(<Error<T>>::EdgeExists),
+							Err(index) => {
+								list.insert(index, edge);
+								edge_count += 1;
+								Ok(())
+							},
+						};
+					}
+					let bounded_vec = BoundedVec::<Edge, T::MaxFollows>::try_from(list)
+						.map_err(|_| <Error<T>>::TooManyEdges)
+						.unwrap();
+					<Graph<T>>::insert(&from_static_id, &bounded_vec);
+				} else {
+					// child tree
+					for e in 0..edges {
+						let ed = (n + e + 1) % nodes;
+						let to_static_id = ed as MessageSenderId;
+
+						let data = Permission { data: 1 };
+						Storage::<T>::write(
+							map.get(&from_static_id).unwrap(),
+							&Pallet::<T>::get_storage_key(to_static_id),
+							Some(data.encode().to_vec()),
+						);
+						edge_count += 1;
+					}
 				}
+
 			}
 			<EdgeCount<T>>::set(edge_count);
 			log::info!("end list");
