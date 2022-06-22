@@ -27,7 +27,7 @@ use sp_state_machine::Storage;
 use sp_storage::StateVersion;
 
 use clap::{Args, Parser};
-use log::info;
+use log::{info, debug};
 use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
@@ -99,6 +99,14 @@ pub struct StorageParams {
 	/// State cache size.
 	#[clap(long, default_value = "0")]
 	pub state_cache_size: usize,
+
+	/// warmup threshold percentage [1-100]
+	#[clap(long, default_value = "100")]
+	pub warmup_threshold: u32,
+
+	/// sampling threshold [1-100]
+	#[clap(long, default_value = "100")]
+	pub sampling_threshold: u32,
 }
 
 impl StorageCmd {
@@ -170,12 +178,17 @@ impl StorageCmd {
 		keys.shuffle(&mut rng);
 
 		for i in 0..self.params.warmups {
-			info!("Warmup round {}/{}", i + 1, self.params.warmups);
+			info!("Warmup round {}/{}  {} keys, {} warmup-threshold", i + 1, self.params.warmups, keys.len(), self.params.warmup_threshold);
 			for key in keys.clone() {
-				let _ = client
-					.storage(&block, &key)
-					.expect("Checked above to exist")
-					.ok_or("Value unexpectedly empty");
+				let rand = rng.gen_range(1..=100);
+				if rand <= self.params.warmup_threshold {
+					let _ = client
+						.storage(&block, &key)
+						.expect("Checked above to exist")
+						.ok_or("Value unexpectedly empty");
+
+					debug!("Warmup {}", hex::encode(key));
+				}
 			}
 		}
 

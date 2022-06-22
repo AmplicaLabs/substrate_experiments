@@ -142,6 +142,9 @@ where
 		self.essence.pairs()
 	}
 
+	// fn pairs_limit(&self, rng: &mut impl rand::Rng, threshold: i32) -> Vec<(StorageKey, StorageValue)> {
+	// 	self.essence.pairs_limit(rng, threshold)
+	// }
 	fn keys(&self, prefix: &[u8]) -> Vec<StorageKey> {
 		self.essence.keys(prefix)
 	}

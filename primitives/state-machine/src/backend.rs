@@ -161,6 +161,9 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	/// Get all key/value pairs into a Vec.
 	fn pairs(&self) -> Vec<(StorageKey, StorageValue)>;
 
+	// /// Get some key/value pairs into a Vec.
+	// fn pairs_limit(&self, rng: &mut impl rand::Rng, threshold: i32) -> Vec<(StorageKey, StorageValue)>;
+
 	/// Get all keys with given prefix
 	fn keys(&self, prefix: &[u8]) -> Vec<StorageKey> {
 		let mut all = Vec::new();

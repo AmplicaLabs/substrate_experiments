@@ -62,9 +62,19 @@ impl StorageCmd {
 
 		info!("Preparing keys from block {}", block);
 		// Load all KV pairs and randomly shuffle them.
+		// let mut kvs = trie.pairs_limit(100_000);
 		let mut kvs = trie.pairs();
+		info!("pairs are ready len={}", kvs.len());
 		let (mut rng, _) = new_rng(None);
+
+		kvs.retain(|_| {
+			let rand = rng.gen_range(1..=100);
+			rand <= self.params.sampling_threshold
+		});
+		info!("after filter len={}", kvs.len());
+
 		kvs.shuffle(&mut rng);
+		info!("shuffle done");
 
 		let empty_prefix = StorageKey(Vec::new());
 		let child_prefix = ":child_storage:default:".as_bytes();
@@ -108,12 +118,15 @@ impl StorageCmd {
 				let info = ChildInfo::new_default(trie_id.unwrap());
 				let my_keys = client.child_storage_keys(&block, &info.clone(), &empty_prefix)?;
 				for kk in my_keys {
-					let v = client
-						.child_storage(&block, &info.clone(), &kk)
-						.expect("Checked above to exist")
-						.ok_or("Value unexpectedly empty")?;
-					c_kv.push((info.clone(), kk.clone(), v.0));
-					debug!("-> {:?}", hex::encode(kk.clone()));
+					let rand = rng.gen_range(1..=100);
+					if rand <= self.params.sampling_threshold {
+						let v = client
+							.child_storage(&block, &info.clone(), &kk)
+							.expect("Checked above to exist")
+							.ok_or("Value unexpectedly empty")?;
+						c_kv.push((info.clone(), kk.clone(), v.0));
+						debug!("-> {:?}", hex::encode(kk.clone()));
+					}
 				}
 			} else {
 				// Interesting part here:
