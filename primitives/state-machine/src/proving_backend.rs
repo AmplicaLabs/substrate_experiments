@@ -327,9 +327,6 @@ where
 		self.0.pairs()
 	}
 
-	// fn pairs_limit(&self, _rng: &mut impl rand::Rng, _threshold: i32) -> Vec<(Vec<u8>, Vec<u8>)> {
-	// 	self.0.pairs()
-	// }
 	fn keys(&self, prefix: &[u8]) -> Vec<Vec<u8>> {
 		self.0.keys(prefix)
 	}

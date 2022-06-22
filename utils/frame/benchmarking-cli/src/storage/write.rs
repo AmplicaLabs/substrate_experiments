@@ -25,6 +25,7 @@ use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, HashFor, Header as HeaderT},
 };
+use sp_state_machine::backend::Sampling;
 use sp_trie::PrefixedMemoryDB;
 use sp_core::storage::StorageKey;
 use frame_support::{
@@ -62,16 +63,9 @@ impl StorageCmd {
 
 		info!("Preparing keys from block {}", block);
 		// Load all KV pairs and randomly shuffle them.
-		// let mut kvs = trie.pairs_limit(100_000);
-		let mut kvs = trie.pairs();
-		info!("pairs are ready len={}", kvs.len());
 		let (mut rng, _) = new_rng(None);
-
-		kvs.retain(|_| {
-			let rand = rng.gen_range(1..=100);
-			rand <= self.params.sampling_threshold
-		});
-		info!("after filter len={}", kvs.len());
+		let mut kvs = trie.pairs_limit(&mut rng, self.params.sampling_threshold.try_into().unwrap());
+		info!("pairs are ready len={}", kvs.len());
 
 		kvs.shuffle(&mut rng);
 		info!("shuffle done");

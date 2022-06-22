@@ -701,10 +701,6 @@ impl<S: StateBackend<HashFor<B>>, B: BlockT> StateBackend<HashFor<B>> for Cachin
 		self.state.pairs()
 	}
 
-	// fn pairs_limit(&self, _rng: &mut impl rand::Rng, _threshold: i32) -> Vec<(Vec<u8>, Vec<u8>)> {
-	// 	self.pairs()
-	// }
-
 	fn keys(&self, prefix: &[u8]) -> Vec<Vec<u8>> {
 		self.state.keys(prefix)
 	}
@@ -905,11 +901,6 @@ impl<S: StateBackend<HashFor<B>>, B: BlockT> StateBackend<HashFor<B>>
 	fn pairs(&self) -> Vec<(Vec<u8>, Vec<u8>)> {
 		self.caching_state().pairs()
 	}
-
-	// #[cfg(feature = "std")]
-	// fn pairs_limit(&self, _rng: &mut impl rand::Rng, _threshold: i32) -> Vec<(Vec<u8>, Vec<u8>)> {
-	// 	self.pairs()
-	// }
 
 	fn keys(&self, prefix: &[u8]) -> Vec<Vec<u8>> {
 		self.caching_state().keys(prefix)

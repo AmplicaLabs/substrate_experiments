@@ -161,9 +161,6 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	/// Get all key/value pairs into a Vec.
 	fn pairs(&self) -> Vec<(StorageKey, StorageValue)>;
 
-	// /// Get some key/value pairs into a Vec.
-	// fn pairs_limit(&self, rng: &mut impl rand::Rng, threshold: i32) -> Vec<(StorageKey, StorageValue)>;
-
 	/// Get all keys with given prefix
 	fn keys(&self, prefix: &[u8]) -> Vec<StorageKey> {
 		let mut all = Vec::new();
@@ -274,6 +271,13 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 	fn get_read_and_written_keys(&self) -> Vec<(Vec<u8>, u32, u32, bool)> {
 		unimplemented!()
 	}
+}
+
+/// Trait that allows sampling
+pub trait Sampling<H: Hasher>: sp_std::fmt::Debug {
+	/// Get some key/value pairs into a Vec.
+	#[cfg(feature = "std")]
+	fn pairs_limit<R: rand::Rng>(&self, rng: &mut R, threshold: i32) -> Vec<(StorageKey, StorageValue)>;
 }
 
 /// Trait that allows consolidate two transactions together.

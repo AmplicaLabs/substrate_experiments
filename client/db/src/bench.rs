@@ -445,10 +445,6 @@ impl<B: BlockT> StateBackend<HashFor<B>> for BenchmarkingState<B> {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| s.pairs())
 	}
 
-	// fn pairs_limit(&self, _rng: &mut impl rand::Rng, _threshold: i32) -> Vec<(Vec<u8>, Vec<u8>)> {
-	// 	self.pairs()
-	// }
-
 	fn keys(&self, prefix: &[u8]) -> Vec<Vec<u8>> {
 		self.state.borrow().as_ref().map_or(Default::default(), |s| s.keys(prefix))
 	}

@@ -264,10 +264,6 @@ impl<B: BlockT> StateBackend<HashFor<B>> for RefTrackingState<B> {
 		self.state.pairs()
 	}
 
-	// fn pairs_limit(&self, _rng: &mut impl rand::Rng, _threshold: i32) -> Vec<(Vec<u8>, Vec<u8>)> {
-	// 	self.state.pairs()
-	// }
-
 	fn keys(&self, prefix: &[u8]) -> Vec<Vec<u8>> {
 		self.state.keys(prefix)
 	}
