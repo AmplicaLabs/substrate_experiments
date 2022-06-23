@@ -104,9 +104,13 @@ pub struct StorageParams {
 	#[clap(long, default_value = "100")]
 	pub warmup_threshold: u32,
 
-	/// sampling threshold [1-100]
+	/// write threshold [1-100]
 	#[clap(long, default_value = "100")]
-	pub sampling_threshold: u32,
+	pub write_threshold: u32,
+
+	/// read threshold [1-100]
+	#[clap(long, default_value = "100")]
+	pub read_threshold: u32,
 }
 
 impl StorageCmd {

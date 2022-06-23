@@ -121,7 +121,7 @@ pub mod pallet {
 		fn default() -> Self {
 			Self {
 				structure: 2,
-				nodes: 1_000_000,
+				nodes: 2_000_000,
 				edges: 300,
 			}
 		}

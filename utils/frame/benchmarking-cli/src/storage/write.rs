@@ -64,7 +64,7 @@ impl StorageCmd {
 		info!("Preparing keys from block {}", block);
 		// Load all KV pairs and randomly shuffle them.
 		let (mut rng, _) = new_rng(None);
-		let mut kvs = trie.pairs_limit(&mut rng, self.params.sampling_threshold.try_into().unwrap());
+		let mut kvs = trie.pairs_limit(&mut rng, self.params.write_threshold.try_into().unwrap());
 		info!("pairs are ready len={}", kvs.len());
 
 		kvs.shuffle(&mut rng);
@@ -113,12 +113,12 @@ impl StorageCmd {
 				let my_keys = client.child_storage_keys(&block, &info.clone(), &empty_prefix)?;
 				for kk in my_keys {
 					let rand = rng.gen_range(1..=100);
-					if rand <= self.params.sampling_threshold {
-						let v = client
-							.child_storage(&block, &info.clone(), &kk)
-							.expect("Checked above to exist")
-							.ok_or("Value unexpectedly empty")?;
-						c_kv.push((info.clone(), kk.clone(), v.0));
+					if rand <= self.params.write_threshold {
+						// let v = client
+						// 	.child_storage(&block, &info.clone(), &kk)
+						// 	.expect("Checked above to exist")
+						// 	.ok_or("Value unexpectedly empty")?;
+						c_kv.push((info.clone(), kk.clone(), vec![0,1]));
 						debug!("-> {:?}", hex::encode(kk.clone()));
 					}
 				}
