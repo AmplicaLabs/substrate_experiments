@@ -1,106 +1,98 @@
-use crate::{Config, StorageKey, TrieId, MessageSenderId};
+use crate::{Config, GraphKey, GraphType, MessageSourceId, PrivatePage, PublicPage, StorageKey};
+use codec::Encode;
 use frame_support::{
-	storage::{child, child::ChildInfo},
-	Blake2_128Concat, ReversibleStorageHasher, StorageHasher,
+	storage::{child, child::ChildInfo, ChildTriePrefixIterator},
+	Identity,
 };
-use sp_runtime::{
-	traits::{Hash},
-	DispatchError,
-};
+use sp_runtime::{traits::Hash, DispatchError};
 use sp_std::{marker::PhantomData, prelude::*};
 
-/// Associated child trie unique id is built from the hash part of the trie id.
-fn child_trie_info(trie_id: &[u8]) -> ChildInfo {
-	ChildInfo::new_default(trie_id)
-}
-
-fn blake2_128_concat(key: &[u8]) -> Vec<u8> {
-	Blake2_128Concat::hash(key)
-}
-
+/// child tree access utility
 pub struct Storage<T>(PhantomData<T>);
 impl<T> Storage<T>
-where
-	T: Config,
-	// T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+	where
+		T: Config,
+// T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
-	/// Reads a storage kv pair of a contract.
+	/// Reads a public graph storage
 	///
-	/// The read is performed from the `trie_id` only. The `address` is not necessary. If the
+	/// The read is performed from the `msa_id` only. The `address` is not necessary. If the
 	/// contract doesn't store under the given `key` `None` is returned.
-	pub fn read(trie_id: &TrieId, key: &StorageKey) -> Option<Vec<u8>> {
-		child::get_raw(&child_trie_info(trie_id), blake2_128_concat(key).as_slice())
+	pub fn read_public_graph(msa_id: &MessageSourceId, key: &StorageKey) -> Option<PublicPage> {
+		let child = Self::get_child_tree(*msa_id, GraphType::Public);
+		child::get::<PublicPage>(&child, key.as_slice())
 	}
 
-	/// Returns `Some(len)` (in bytes) if a storage item exists at `key`.
+	/// iterator for public graph
+	pub fn public_graph_iter(
+		msa_id: &MessageSourceId,
+	) -> ChildTriePrefixIterator<(GraphKey, PublicPage)> {
+		let child = Self::get_child_tree(*msa_id, GraphType::Public);
+		ChildTriePrefixIterator::<_>::with_prefix_over_key::<Identity>(&child, &[])
+	}
+
+	/// Reads a private graph storage
 	///
-	/// Returns `None` if the `key` wasn't previously set by `set_storage` or
-	/// was deleted.
-	pub fn size(trie_id: &TrieId, key: &StorageKey) -> Option<u32> {
-		child::len(&child_trie_info(trie_id), blake2_128_concat(key).as_slice())
+	/// The read is performed from the `msa_id` only. The `address` is not necessary. If the
+	/// contract doesn't store under the given `key` `None` is returned.
+	pub fn read_private_graph(msa_id: &MessageSourceId, key: &StorageKey) -> Option<PrivatePage> {
+		let child = Self::get_child_tree(*msa_id, GraphType::Private);
+		child::get::<PrivatePage>(&child, key.as_slice())
 	}
 
-	/// Generates a unique trie id by returning  `hash(account_id ++ nonce)`.
-	pub fn generate_trie_id(node_id: MessageSenderId, nonce: u64) -> TrieId {
-		let buf: Vec<_> =
-			(&node_id.to_le_bytes()).iter().chain(&nonce.to_le_bytes()).cloned().collect();
-		T::Hashing::hash(&buf)
-			.as_ref()
-			.to_vec()
-			.try_into()
-			.expect("Runtime uses a reasonable hash size. Hence sizeof(T::Hash) <= 128; qed")
+	/// iterator for public graph
+	pub fn private_graph_iter(
+		msa_id: &MessageSourceId,
+	) -> ChildTriePrefixIterator<(GraphKey, PrivatePage)> {
+		let child = Self::get_child_tree(*msa_id, GraphType::Private);
+		ChildTriePrefixIterator::<_>::with_prefix_over_key::<Identity>(&child, &[])
 	}
 
-	pub fn write(
-		trie_id: &TrieId,
+	/// write directly into child tree
+	pub fn write_public(
+		msa_id: &MessageSourceId,
 		key: &StorageKey,
-		new_value: Option<Vec<u8>>,
+		new_value: Option<PublicPage>,
 	) -> Result<bool, DispatchError> {
-		let hashed_key = blake2_128_concat(key);
-		let child_trie_info = &child_trie_info(trie_id);
-
-		// log::info!("trie_id: {:02x?} key: {:02x?}", trie_id.clone().into_inner(),  hashed_key.clone());
+		let child_trie_info = &Self::get_child_tree(*msa_id, GraphType::Public);
 
 		match &new_value {
-			Some(new_value) => child::put_raw(child_trie_info, &hashed_key, new_value),
-			None => child::kill(child_trie_info, &hashed_key),
+			Some(new_value) => child::put_raw(child_trie_info, &key, new_value.encode().as_ref()),
+			None => child::kill(child_trie_info, &key),
 		}
 
 		Ok(true)
 	}
 
-	pub fn iter_keys(trie_id: &TrieId) -> Vec<StorageKey> {
-		#[cfg(test)]
-		use std::{println as info, println as warn};
+	/// write into graph
+	pub fn write_private(
+		msa_id: &MessageSourceId,
+		key: &StorageKey,
+		new_value: Option<PrivatePage>,
+	) -> Result<bool, DispatchError> {
+		let child_trie_info = &Self::get_child_tree(*msa_id, GraphType::Private);
 
-		let child_trie_info = &child_trie_info(trie_id);
-		let _prefix = child_trie_info.prefixed_storage_key();
-		let location = child_trie_info.storage_key();
-
-		#[cfg(test)]
-		{
-			println!("prefix {:X?}", _prefix.into_inner());
-			println!("location {:X?}", location);
+		match &new_value {
+			Some(new_value) => child::put_raw(child_trie_info, &key, new_value.encode().as_ref()),
+			None => child::kill(child_trie_info, &key),
 		}
 
-		let mut res = Vec::new();
+		Ok(true)
+	}
 
-		let mut key = Some(Vec::default());
-		while key.is_some() {
-			key = sp_io::default_child_storage::next_key(location, key.unwrap().as_slice());
+	fn get_child_tree(msa_id: MessageSourceId, graph: GraphType) -> ChildInfo {
+		let trie_root = Self::get_graph_key_prefix(msa_id, graph);
+		child::ChildInfo::new_default(T::Hashing::hash(&trie_root[..]).as_ref())
+	}
 
-			if let Some(arr) = key.clone() {
-				let reversed = Blake2_128Concat::reverse(arr.as_slice()).to_vec();
-				res.push(StorageKey::try_from(reversed.clone()).unwrap());
-
-				#[cfg(test)]
-				{
-					println!("key {:X?}", key);
-					println!("reversed {:X?}", reversed);
-				}
-			}
+	fn get_graph_key_prefix(msa_id: MessageSourceId, graph: GraphType) -> Vec<u8> {
+		let mut k: Vec<u8> = vec![];
+		k.extend(b"graph");
+		k.extend_from_slice(&msa_id.encode()[..]);
+		match graph {
+			GraphType::Public => k.extend(b"P"),
+			GraphType::Private => k.extend(b"S"),
 		}
-
-		res
+		k
 	}
 }
