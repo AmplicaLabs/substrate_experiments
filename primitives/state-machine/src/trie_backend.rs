@@ -18,6 +18,7 @@
 //! Trie-based state machine backend.
 
 use crate::{
+	backend::Sampling,
 	trie_backend_essence::{TrieBackendEssence, TrieBackendStorage},
 	Backend, StorageKey, StorageValue,
 };
@@ -25,7 +26,6 @@ use codec::Codec;
 use hash_db::Hasher;
 use sp_core::storage::{ChildInfo, StateVersion};
 use sp_std::vec::Vec;
-use crate::backend::Sampling;
 
 /// Patricia trie-based backend. Transaction type is an overlay of changes to commit.
 pub struct TrieBackend<S: TrieBackendStorage<H>, H: Hasher> {
@@ -186,11 +186,15 @@ where
 }
 
 impl<S: TrieBackendStorage<H>, H: Hasher> Sampling<H> for TrieBackend<S, H>
-	where
-		H::Out: Ord + Codec,
+where
+	H::Out: Ord + Codec,
 {
 	#[cfg(feature = "std")]
-	fn pairs_limit<R: rand::Rng>(&self, rng: &mut R, threshold: i32) -> Vec<(StorageKey, StorageValue)> {
+	fn pairs_limit<R: rand::Rng>(
+		&self,
+		rng: &mut R,
+		threshold: i32,
+	) -> Vec<(StorageKey, StorageValue)> {
 		self.essence.pairs_limit(rng, threshold)
 	}
 }

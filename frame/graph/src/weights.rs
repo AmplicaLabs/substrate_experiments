@@ -112,20 +112,20 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 			.saturating_add(T::DbWeight::get().reads(2 as Weight))
 			.saturating_add(T::DbWeight::get().writes(2 as Weight))
 	}
-	// Storage: Graph Nodes (r:2 w:0)
 	// Storage: unknown [0xe8031400] (r:1 w:1)
 	// Storage: unknown [0xe8030000] (r:1 w:1)
+	// Storage: unknown [0xe8030200] (r:1 w:1)
 	// Storage: unknown [0xe8030400] (r:1 w:1)
+	// Storage: unknown [0xe8030600] (r:1 w:1)
 	// Storage: unknown [0xe8030800] (r:1 w:1)
+	// Storage: unknown [0xe8030a00] (r:1 w:1)
 	// Storage: unknown [0xe8030c00] (r:1 w:1)
+	// Storage: unknown [0xe8030e00] (r:1 w:1)
 	// Storage: unknown [0xe8031000] (r:1 w:1)
-	fn follow_child_public(n: u32, p: u32, ) -> Weight {
-		(49_638_000 as Weight)
-			// Standard Error: 41_000
-			.saturating_add((32_000 as Weight).saturating_mul(n as Weight))
-			// Standard Error: 209_000
-			.saturating_add((482_000 as Weight).saturating_mul(p as Weight))
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
+	// Storage: unknown [0xe8031200] (r:1 w:1)
+	fn follow_child_public(_n: u32, _p: u32, ) -> Weight {
+		(33_976_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Graph Nodes (r:1 w:0)
@@ -192,20 +192,20 @@ impl WeightInfo for () {
 			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
 	}
-	// Storage: Graph Nodes (r:2 w:0)
 	// Storage: unknown [0xe8031400] (r:1 w:1)
 	// Storage: unknown [0xe8030000] (r:1 w:1)
+	// Storage: unknown [0xe8030200] (r:1 w:1)
 	// Storage: unknown [0xe8030400] (r:1 w:1)
+	// Storage: unknown [0xe8030600] (r:1 w:1)
 	// Storage: unknown [0xe8030800] (r:1 w:1)
+	// Storage: unknown [0xe8030a00] (r:1 w:1)
 	// Storage: unknown [0xe8030c00] (r:1 w:1)
+	// Storage: unknown [0xe8030e00] (r:1 w:1)
 	// Storage: unknown [0xe8031000] (r:1 w:1)
-	fn follow_child_public(n: u32, p: u32, ) -> Weight {
-		(49_638_000 as Weight)
-			// Standard Error: 41_000
-			.saturating_add((32_000 as Weight).saturating_mul(n as Weight))
-			// Standard Error: 209_000
-			.saturating_add((482_000 as Weight).saturating_mul(p as Weight))
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
+	// Storage: unknown [0xe8031200] (r:1 w:1)
+	fn follow_child_public(_n: u32, _p: u32, ) -> Weight {
+		(33_976_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
 	}
 	// Storage: Graph Nodes (r:1 w:0)

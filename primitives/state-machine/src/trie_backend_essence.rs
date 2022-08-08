@@ -457,12 +457,16 @@ where
 
 	/// Returns all `(key, value)` pairs in the trie.
 	#[cfg(feature = "std")]
-	pub fn pairs_limit<R: rand::Rng>(&self,rng: & mut R, threshold: i32) -> Vec<(StorageKey, StorageValue)> {
+	pub fn pairs_limit<R: rand::Rng>(
+		&self,
+		rng: &mut R,
+		threshold: i32,
+	) -> Vec<(StorageKey, StorageValue)> {
 		let mut collect_all = || -> sp_std::result::Result<_, Box<TrieError<H::Out>>> {
 			let trie = TrieDB::<H>::new(self, &self.root)?;
 			let mut v = Vec::new();
 			for x in trie.iter()? {
-				let rand : i32 = rng.gen_range(1..=100);
+				let rand: i32 = rng.gen_range(1..=100);
 				if rand <= threshold {
 					let (key, value) = x?;
 					v.push((key.to_vec(), value.to_vec()));

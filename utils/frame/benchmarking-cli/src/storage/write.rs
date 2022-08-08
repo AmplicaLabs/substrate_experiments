@@ -15,11 +15,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::storage::child::ChildInfo;
+use log::{debug, info, trace};
+use rand::prelude::*;
 use sc_cli::Result;
-use sc_client_api::{UsageProvider, StorageProvider, Backend as ClientBackend};
+use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::{DbHash, DbState};
 use sp_api::StateBackend;
 use sp_blockchain::HeaderBackend;
+use sp_core::storage::StorageKey;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::{
 	generic::BlockId,
@@ -27,12 +31,6 @@ use sp_runtime::{
 };
 use sp_state_machine::backend::Sampling;
 use sp_trie::PrefixedMemoryDB;
-use sp_core::storage::StorageKey;
-use frame_support::{
-	storage::{child::ChildInfo},
-};
-use log::{info, debug, trace};
-use rand::prelude::*;
 use std::{fmt::Debug, sync::Arc, time::Instant};
 
 use super::cmd::StorageCmd;
@@ -47,11 +45,11 @@ impl StorageCmd {
 		(db, state_col): (Arc<dyn sp_database::Database<DbHash>>, ColumnId),
 		storage: Arc<dyn sp_state_machine::Storage<HashFor<Block>>>,
 	) -> Result<BenchRecord>
-		where
-			Block: BlockT<Header = H, Hash = DbHash> + Debug,
-			H: HeaderT<Hash = DbHash>,
-			BA: ClientBackend<Block>,
-			C: UsageProvider<Block> + HeaderBackend<Block> +  StorageProvider<Block, BA>
+	where
+		Block: BlockT<Header = H, Hash = DbHash> + Debug,
+		H: HeaderT<Hash = DbHash>,
+		BA: ClientBackend<Block>,
+		C: UsageProvider<Block> + HeaderBackend<Block> + StorageProvider<Block, BA>,
 	{
 		// Store the time that it took to write each value.
 		let mut record = BenchRecord::default();
@@ -77,7 +75,7 @@ impl StorageCmd {
 		// db entries, so we can rollback all additions without corrupting existing entries.
 		for (k, original_v) in kvs.iter_mut() {
 			if k.clone().starts_with(child_prefix) {
-				continue;
+				continue
 			}
 
 			'retry: loop {
@@ -118,7 +116,7 @@ impl StorageCmd {
 						// 	.child_storage(&block, &info.clone(), &kk)
 						// 	.expect("Checked above to exist")
 						// 	.ok_or("Value unexpectedly empty")?;
-						c_kv.push((info.clone(), kk.clone(), vec![0,1]));
+						c_kv.push((info.clone(), kk.clone(), vec![0, 1]));
 						debug!("-> {:?}", hex::encode(kk.clone()));
 					}
 				}
@@ -139,7 +137,7 @@ impl StorageCmd {
 				db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
 			}
 
-			count +=1;
+			count += 1;
 			if count % 100_000 == 0 {
 				info!("{}", count)
 			}
@@ -150,7 +148,12 @@ impl StorageCmd {
 		info!("shuffle done");
 
 		for (info, k, original_v) in c_kv.iter_mut() {
-			debug!("info={:?}  k={:?}  v={:?}", hex::encode(info.keyspace()), hex::encode(k.clone()), hex::encode(original_v.clone()));
+			debug!(
+				"info={:?}  k={:?}  v={:?}",
+				hex::encode(info.keyspace()),
+				hex::encode(k.clone()),
+				hex::encode(original_v.clone())
+			);
 			'retry_again: loop {
 				let mut new_v = vec![0; original_v.len()];
 				// Create a random value to overwrite with.
@@ -158,7 +161,8 @@ impl StorageCmd {
 				// could be improved but acts as an over-estimation which is fine for now.
 				rng.fill_bytes(&mut new_v[..]);
 				let new_kv = vec![(k.as_ref(), Some(new_v.as_ref()))];
-				let (_, _, mut stx) = trie.child_storage_root(&info, new_kv.iter().cloned(), self.state_version());
+				let (_, _, mut stx) =
+					trie.child_storage_root(&info, new_kv.iter().cloned(), self.state_version());
 				for (mut k, (_, rc)) in stx.drain().into_iter() {
 					debug!("drain -> {:?}", hex::encode(k.clone()));
 					if rc > 0 {
@@ -182,7 +186,8 @@ impl StorageCmd {
 			// Create a TX that will modify the Trie in the DB and
 			// calculate the root hash of the Trie after the modification.
 			let replace = vec![(k.as_ref(), Some(new_v.as_ref()))];
-			let (_,_, stx) = trie.child_storage_root(info, replace.iter().cloned(), self.state_version());
+			let (_, _, stx) =
+				trie.child_storage_root(info, replace.iter().cloned(), self.state_version());
 			// Only the keep the insertions, since we do not want to benchmark pruning.
 			let tx = convert_tx::<Block>(db.clone(), stx.clone(), false, state_col);
 			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
@@ -192,7 +197,7 @@ impl StorageCmd {
 			let tx = convert_tx::<Block>(db.clone(), stx.clone(), true, state_col);
 			db.commit(tx).map_err(|e| format!("Writing to the Database: {}", e))?;
 
-			count +=1;
+			count += 1;
 			if count % 100_000 == 0 {
 				info!("{}", count)
 			}

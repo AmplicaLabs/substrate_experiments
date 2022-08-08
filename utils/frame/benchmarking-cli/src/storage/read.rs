@@ -15,15 +15,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use frame_support::storage::child::ChildInfo;
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sp_core::storage::StorageKey;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT},
-};
-use frame_support::{
-	storage::{child::ChildInfo},
 };
 
 use log::info;

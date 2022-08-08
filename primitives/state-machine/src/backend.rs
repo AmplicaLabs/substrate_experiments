@@ -277,7 +277,11 @@ pub trait Backend<H: Hasher>: sp_std::fmt::Debug {
 pub trait Sampling<H: Hasher>: sp_std::fmt::Debug {
 	/// Get some key/value pairs into a Vec.
 	#[cfg(feature = "std")]
-	fn pairs_limit<R: rand::Rng>(&self, rng: &mut R, threshold: i32) -> Vec<(StorageKey, StorageValue)>;
+	fn pairs_limit<R: rand::Rng>(
+		&self,
+		rng: &mut R,
+		threshold: i32,
+	) -> Vec<(StorageKey, StorageValue)>;
 }
 
 /// Trait that allows consolidate two transactions together.

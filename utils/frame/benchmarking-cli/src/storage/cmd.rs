@@ -27,7 +27,7 @@ use sp_state_machine::Storage;
 use sp_storage::StateVersion;
 
 use clap::{Args, Parser};
-use log::{info, debug};
+use log::{debug, info};
 use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
@@ -182,7 +182,13 @@ impl StorageCmd {
 		keys.shuffle(&mut rng);
 
 		for i in 0..self.params.warmups {
-			info!("Warmup round {}/{}  {} keys, {} warmup-threshold", i + 1, self.params.warmups, keys.len(), self.params.warmup_threshold);
+			info!(
+				"Warmup round {}/{}  {} keys, {} warmup-threshold",
+				i + 1,
+				self.params.warmups,
+				keys.len(),
+				self.params.warmup_threshold
+			);
 			for key in keys.clone() {
 				let rand = rng.gen_range(1..=100);
 				if rand <= self.params.warmup_threshold {

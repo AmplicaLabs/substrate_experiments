@@ -12,7 +12,8 @@
 //! network to flexibly interact and exchange messages with each other without facing the challenge
 //! of sharing, managing and validating messages as well as schemas between them.
 //!
-//! <b>NOTE</b>: In this pallet we define the <b>payload</b> structure that is used in <a href="../pallet_messages/index.html">Messages Pallet</a>.
+//! <b>NOTE</b>: In this pallet we define the <b>payload</b> structure that is used in <a
+//! href="../pallet_messages/index.html">Messages Pallet</a>.
 //!
 //! The Schema pallet provides functions for:
 //!
@@ -38,12 +39,12 @@
 //!
 //! The Schema pallet implements the following traits:
 //!
-//! - [`SchemaProvider`](common_primitives::schema::SchemaProvider<SchemaId>): Functions for accessing and validating Schemas.  This implementation is what is used in the runtime.
+//! - [`SchemaProvider`](common_primitives::schema::SchemaProvider<SchemaId>): Functions for
+//!   accessing and validating Schemas.  This implementation is what is used in the runtime.
 //!
 //! ## Genesis config
 //!
 //! The Schemas pallet depends on the [`GenesisConfig`].
-//!
 #![cfg_attr(not(feature = "std"), no_std)]
 // Strong Documentation Lints
 
@@ -55,14 +56,12 @@ mod types;
 use codec::Encode;
 use frame_support::{ensure, traits::Get, BoundedVec};
 use sp_runtime::DispatchError;
-use sp_std::prelude::*;
-use sp_std::{convert::TryInto};
+use sp_std::{convert::TryInto, prelude::*};
 
 pub use pallet::*;
 pub use storage::*;
 pub use types::*;
 pub use weights::*;
-
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -106,13 +105,13 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn get_node)]
 	pub(super) type Nodes<T: Config> =
-	StorageMap<_, Twox64Concat, MessageSourceId, Node, OptionQuery>;
+		StorageMap<_, Twox64Concat, MessageSourceId, Node, OptionQuery>;
 
 	/// static_id -> [edge, edge, ...]
 	#[pallet::storage]
 	#[pallet::getter(fn graph_adj)]
 	pub(super) type GraphAdj<T: Config> =
-	StorageMap<_, Twox64Concat, MessageSourceId, BoundedVec<Edge, T::MaxFollows>, ValueQuery>;
+		StorageMap<_, Twox64Concat, MessageSourceId, BoundedVec<Edge, T::MaxFollows>, ValueQuery>;
 
 	/// double storage
 	#[pallet::storage]
@@ -182,7 +181,7 @@ pub mod pallet {
 	///  genesis config
 	#[pallet::genesis_config]
 	pub struct GenesisConfig {
-		pub structure: u8,   // 0 = DoubleMap , 1 = Adj list , 2 = child trees
+		pub structure: u8, // 0 = DoubleMap , 1 = Adj list , 2 = child trees
 		pub nodes: u32,
 		pub edges: u32,
 	}
@@ -191,32 +190,37 @@ pub mod pallet {
 	#[cfg(feature = "std")]
 	impl Default for GenesisConfig {
 		fn default() -> Self {
-			Self {
-				structure: 2,
-				nodes: 10_000_000,
-				edges: 300,
-			}
+			Self { structure: 2, nodes: 10_000_000, edges: 300 }
 		}
 	}
 
 	#[pallet::genesis_build]
 	impl<T: Config> GenesisBuild<T> for GenesisConfig {
 		fn build(&self) {
-			log::info!("starting genesis structure {} nodes {} edges {}",self.structure, self.nodes, self.edges);
+			log::info!(
+				"starting genesis structure {} nodes {} edges {}",
+				self.structure,
+				self.nodes,
+				self.edges
+			);
 			let nodes: u32 = self.nodes;
 			let edges: u32 = self.edges;
 
-			let permission = Permission { data: 1000u16};
+			let permission = Permission { data: 1000u16 };
 			let page_size = PublicPage::bound() as u32;
 
 			let mut node_count: u64 = 0;
-			for n in 0..nodes {
-				if n % 100_000 == 0 {
-					log::info!("Nodes added: {:?}", n);
-				}
+			if self.structure != 2 {
+				for n in 0..nodes {
+					if n % 100_000 == 0 {
+						log::info!("Nodes added: {:?}", n);
+					}
 
-				<Nodes<T>>::insert(n as MessageSourceId, Node {});
-				node_count += 1;
+					<Nodes<T>>::insert(n as MessageSourceId, Node {});
+					node_count += 1;
+				}
+			} else {
+				node_count = nodes as u64;
 			}
 			<NodeCount<T>>::set(node_count);
 
@@ -233,7 +237,11 @@ pub mod pallet {
 					// double map
 					for e in 0..edges {
 						let ed = (n + e + 1) % nodes;
-						<GraphMap<T>>::insert(from_static_id, ed as MessageSourceId, Permission { data: 0 });
+						<GraphMap<T>>::insert(
+							from_static_id,
+							ed as MessageSourceId,
+							Permission { data: 0 },
+						);
 						edge_count += 1;
 					}
 				} else if self.structure == 1 {
@@ -278,15 +286,20 @@ pub mod pallet {
 						};
 
 						if list.len() as u32 == page_size {
-							let pp = PublicPage::try_from(list).map_err(|_| <Error<T>>::TooManyEdges).unwrap();
+							let pp = PublicPage::try_from(list)
+								.map_err(|_| <Error<T>>::TooManyEdges)
+								.unwrap();
 							let key = Pallet::<T>::get_storage_key(&permission, page as u16);
-							Storage::<T>::write_public(&from_static_id, &key, Some(pp.into())).unwrap();
+							Storage::<T>::write_public(&from_static_id, &key, Some(pp.into()))
+								.unwrap();
 							list = sp_std::vec::Vec::new();
 						}
 					}
 
 					if list.len() > 0 {
-						let pp = PublicPage::try_from(list).map_err(|_| <Error<T>>::TooManyEdges).unwrap();
+						let pp = PublicPage::try_from(list)
+							.map_err(|_| <Error<T>>::TooManyEdges)
+							.unwrap();
 						let key = Pallet::<T>::get_storage_key(&permission, page as u16);
 						Storage::<T>::write_public(&from_static_id, &key, Some(pp.into())).unwrap();
 					}
@@ -379,7 +392,7 @@ pub mod pallet {
 					Err(_) => Err(()),
 				}
 			})
-				.map_err(|_| <Error<T>>::NoSuchEdge)?;
+			.map_err(|_| <Error<T>>::NoSuchEdge)?;
 
 			<EdgeCount<T>>::set(cur_count - 1);
 			Self::deposit_event(Event::Unfollowed(sender, from_static_id, to_static_id));
@@ -455,8 +468,6 @@ pub mod pallet {
 
 			// self follow is not permitted
 			ensure!(from_static_id != to_static_id, <Error<T>>::SelfFollowNotPermitted);
-			ensure!(<Nodes<T>>::contains_key(from_static_id), <Error<T>>::NoSuchNode);
-			ensure!(<Nodes<T>>::contains_key(to_static_id), <Error<T>>::NoSuchNode);
 
 			let key = Self::get_storage_key(&permission, page);
 			let perm = Storage::<T>::read_public_graph(&from_static_id, &key.clone());
@@ -498,7 +509,6 @@ pub mod pallet {
 
 			// self unfollow is not permitted
 			ensure!(from_static_id != to_static_id, <Error<T>>::SelfFollowNotPermitted);
-			ensure!(<Nodes<T>>::contains_key(from_static_id), <Error<T>>::NoSuchNode);
 
 			let key = Self::get_storage_key(&permission, page);
 			let perm = Storage::<T>::read_public_graph(&from_static_id, &key.clone());
@@ -538,7 +548,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			ensure!(<Nodes<T>>::contains_key(from_static_id), <Error<T>>::NoSuchNode);
 			let key = Self::get_storage_key(&permission, page);
 
 			Storage::<T>::write_private(
@@ -565,7 +574,6 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
-			ensure!(<Nodes<T>>::contains_key(from_static_id), <Error<T>>::NoSuchNode);
 			let from_key = Self::get_storage_key(&permission, from_page);
 			let to_key = Self::get_storage_key(&permission, to_page);
 

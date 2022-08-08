@@ -10,9 +10,9 @@ use sp_std::{marker::PhantomData, prelude::*};
 /// child tree access utility
 pub struct Storage<T>(PhantomData<T>);
 impl<T> Storage<T>
-	where
-		T: Config,
-// T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
+where
+	T: Config,
+	// T::AccountId: UncheckedFrom<T::Hash> + AsRef<[u8]>,
 {
 	/// Reads a public graph storage
 	///
