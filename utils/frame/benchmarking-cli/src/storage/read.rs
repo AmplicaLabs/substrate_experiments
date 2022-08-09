@@ -56,7 +56,7 @@ impl StorageCmd {
 		// Interesting part here:
 		// Read all the keys in the database and measure the time it takes to access each.
 		info!("Reading {} keys, {} threshold", keys.len(), self.params.read_threshold);
-		let mut child_keys: Vec<(ChildInfo, StorageKey)> = Vec::new();
+		let mut child_count = 0u32;
 		for key in keys {
 			let rand = rng.gen_range(1..=100);
 			if rand <= self.params.read_threshold {
@@ -67,10 +67,16 @@ impl StorageCmd {
 					for k in my_keys {
 						let r = rng.gen_range(1..=100);
 						if r <= self.params.read_threshold {
-							child_keys.push((info.clone(), k));
+							let start = Instant::now();
+							let v = client
+								.child_storage(&block, &info, &k)
+								.expect("Checked above to exist")
+								.ok_or("Value unexpectedly empty")?;
+							record.append(v.0.len(), start.elapsed())?;
 
-							if child_keys.len() % 5000 == 0 {
-								info!("vector len {}", child_keys.len());
+							child_count += 1;
+							if child_count % 5000 == 0 {
+								info!("count {}", child_count);
 							}
 						}
 					}
@@ -86,16 +92,7 @@ impl StorageCmd {
 			}
 		}
 
-		info!("Reading {} child keys", child_keys.len());
-		for (info, key) in child_keys {
-			let start = Instant::now();
-			let v = client
-				.child_storage(&block, &info, &key)
-				.expect("Checked above to exist")
-				.ok_or("Value unexpectedly empty")?;
-			record.append(v.0.len(), start.elapsed())?;
-		}
-
+		info!("ending with {} child keys", child_count);
 		Ok(record)
 	}
 }

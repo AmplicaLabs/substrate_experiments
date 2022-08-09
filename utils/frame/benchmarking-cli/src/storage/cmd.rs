@@ -143,7 +143,7 @@ impl StorageCmd {
 			info!("Time summary [ns]:\n{:?}\nValue size summary:\n{:?}", stats.0, stats.1);
 			template.set_stats(Some(stats), None)?;
 		}
-		template.write(&self.params.weight_params.weight_path, &self.params.template_path);
+		template.write(&self.params.weight_params.weight_path, &self.params.template_path)?;
 
 		if !self.params.skip_write {
 			self.bench_warmup(&client)?;
