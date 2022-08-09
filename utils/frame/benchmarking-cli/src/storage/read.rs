@@ -80,15 +80,14 @@ impl StorageCmd {
 							}
 						}
 					}
+				} else {
+					let start = Instant::now();
+					let v = client
+						.storage(&block, &key)
+						.expect("Checked above to exist")
+						.ok_or("Value unexpectedly empty")?;
+					record.append(v.0.len(), start.elapsed())?;
 				}
-
-				let start = Instant::now();
-				let v = client
-					.storage(&block, &key)
-					.expect("Checked above to exist")
-					.ok_or("Value unexpectedly empty")?;
-				record.append(v.0.len(), start.elapsed())?;
-
 			}
 		}
 
