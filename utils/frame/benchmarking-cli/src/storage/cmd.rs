@@ -143,6 +143,7 @@ impl StorageCmd {
 			info!("Time summary [ns]:\n{:?}\nValue size summary:\n{:?}", stats.0, stats.1);
 			template.set_stats(Some(stats), None)?;
 		}
+		template.write(&self.params.weight_params.weight_path, &self.params.template_path);
 
 		if !self.params.skip_write {
 			self.bench_warmup(&client)?;
@@ -175,10 +176,12 @@ impl StorageCmd {
 		B: BlockT + Debug,
 		BA: ClientBackend<B>,
 	{
+		info!("Before warmup");
 		let block = BlockId::Number(client.usage_info().chain.best_number);
 		let empty_prefix = StorageKey(Vec::new());
 		let mut keys = client.storage_keys(&block, &empty_prefix)?;
 		let (mut rng, _) = new_rng(None);
+		info!("Before shuffle");
 		keys.shuffle(&mut rng);
 
 		for i in 0..self.params.warmups {
@@ -202,6 +205,7 @@ impl StorageCmd {
 			}
 		}
 
+		info!("After warmup");
 		Ok(())
 	}
 }

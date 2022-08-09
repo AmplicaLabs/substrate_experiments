@@ -69,7 +69,7 @@ impl StorageCmd {
 						if r <= self.params.read_threshold {
 							child_keys.push((info.clone(), k));
 
-							if child_keys.len() % 10000 == 0 {
+							if child_keys.len() % 5000 == 0 {
 								info!("vector len {}", child_keys.len());
 							}
 						}
