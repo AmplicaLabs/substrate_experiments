@@ -65,19 +65,16 @@ impl StorageCmd {
 					let info = ChildInfo::new_default(trie_id.unwrap());
 					let my_keys = client.child_storage_keys(&block, &info, &empty_prefix)?;
 					for k in my_keys {
-						let r = rng.gen_range(1..=100);
-						if r <= self.params.read_threshold {
-							let start = Instant::now();
-							let v = client
-								.child_storage(&block, &info, &k)
-								.expect("Checked above to exist")
-								.ok_or("Value unexpectedly empty")?;
-							record.append(v.0.len(), start.elapsed())?;
+						let start = Instant::now();
+						let v = client
+							.child_storage(&block, &info, &k)
+							.expect("Checked above to exist")
+							.ok_or("Value unexpectedly empty")?;
+						record.append(v.0.len(), start.elapsed())?;
 
-							child_count += 1;
-							if child_count % 5000 == 0 {
-								info!("count {}", child_count);
-							}
+						child_count += 1;
+						if child_count % 5000 == 0 {
+							info!("count {}", child_count);
 						}
 					}
 				} else {
