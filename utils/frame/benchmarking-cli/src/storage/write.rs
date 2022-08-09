@@ -74,7 +74,7 @@ impl StorageCmd {
 		// Generate all random values first; Make sure there are no collisions with existing
 		// db entries, so we can rollback all additions without corrupting existing entries.
 		for (k, original_v) in kvs.iter_mut() {
-			if k.clone().starts_with(child_prefix) {
+			if k.as_slice().starts_with(child_prefix) {
 				continue
 			}
 
@@ -104,7 +104,7 @@ impl StorageCmd {
 		let mut count = 0u64;
 		// Write each value in one commit.
 		for (k, new_v) in kvs.iter() {
-			if k.clone().starts_with(child_prefix) {
+			if k.as_slice().starts_with(child_prefix) {
 				debug!("root {:?}", hex::encode(k.clone()));
 				let trie_id = k.strip_prefix(child_prefix);
 				let info = ChildInfo::new_default(trie_id.unwrap());

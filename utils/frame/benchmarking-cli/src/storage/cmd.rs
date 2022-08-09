@@ -189,7 +189,7 @@ impl StorageCmd {
 				keys.len(),
 				self.params.warmup_threshold
 			);
-			for key in keys.clone() {
+			for key in keys.as_slice() {
 				let rand = rng.gen_range(1..=100);
 				if rand <= self.params.warmup_threshold {
 					let _ = client

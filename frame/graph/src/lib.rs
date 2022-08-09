@@ -275,15 +275,8 @@ pub mod pallet {
 						page = e / page_size;
 						let ed = (n + e + 1) % nodes;
 						let to_static_id = ed as MessageSourceId;
-
-						match list.binary_search(&to_static_id) {
-							Ok(_) => Err(<Error<T>>::EdgeExists),
-							Err(index) => {
-								list.insert(index, to_static_id);
-								edge_count += 1;
-								Ok(())
-							},
-						};
+						list.push(to_static_id);
+						edge_count += 1;
 
 						if list.len() as u32 == page_size {
 							let pp = PublicPage::try_from(list)
