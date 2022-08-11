@@ -110,15 +110,12 @@ impl StorageCmd {
 				let info = ChildInfo::new_default(trie_id.unwrap());
 				let my_keys = client.child_storage_keys(&block, &info.clone(), &empty_prefix)?;
 				for kk in my_keys {
-					let rand = rng.gen_range(1..=100);
-					if rand <= self.params.write_threshold {
-						// let v = client
-						// 	.child_storage(&block, &info.clone(), &kk)
-						// 	.expect("Checked above to exist")
-						// 	.ok_or("Value unexpectedly empty")?;
-						c_kv.push((info.clone(), kk.clone(), vec![1; 4096]));
-						debug!("-> {:?}", hex::encode(kk.clone()));
-					}
+					// let v = client
+					// 	.child_storage(&block, &info.clone(), &kk)
+					// 	.expect("Checked above to exist")
+					// 	.ok_or("Value unexpectedly empty")?;
+					c_kv.push((info.clone(), kk.clone(), vec![1; 4096]));
+					debug!("-> {:?}", hex::encode(kk.clone()));
 				}
 			} else {
 				// Interesting part here:
