@@ -116,7 +116,7 @@ impl StorageCmd {
 						// 	.child_storage(&block, &info.clone(), &kk)
 						// 	.expect("Checked above to exist")
 						// 	.ok_or("Value unexpectedly empty")?;
-						c_kv.push((info.clone(), kk.clone(), vec![0, 1]));
+						c_kv.push((info.clone(), kk.clone(), vec![1; 4096]));
 						debug!("-> {:?}", hex::encode(kk.clone()));
 					}
 				}
