@@ -48,6 +48,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // Strong Documentation Lints
 
+#[cfg(test)]
+mod mock;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
 pub mod weights;
 
 mod storage;
