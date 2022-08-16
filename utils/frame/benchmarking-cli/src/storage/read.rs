@@ -48,15 +48,15 @@ impl StorageCmd {
 		let child_prefix = ":child_storage:default:".as_bytes();
 		// Load all keys and randomly shuffle them.
 		let empty_prefix = StorageKey(Vec::new());
-		let mut keys = client.storage_keys(&block, &empty_prefix)?;
+		let keys = client.storage_keys(&block, &empty_prefix)?;
 		info!("after keys");
 		let (mut rng, _) = new_rng(None);
-		keys.shuffle(&mut rng);
+
+		let mut sampled_keys = Vec::new();
 
 		// Interesting part here:
 		// Read all the keys in the database and measure the time it takes to access each.
 		info!("Reading {} keys, {} threshold", keys.len(), self.params.read_threshold);
-		let mut child_count = 0u32;
 		for key in keys {
 			let rand = rng.gen_range(1..=100);
 			if rand <= self.params.read_threshold {
@@ -64,31 +64,52 @@ impl StorageCmd {
 					let trie_id = key.as_ref().strip_prefix(child_prefix);
 					let info = ChildInfo::new_default(trie_id.unwrap());
 					let my_keys = client.child_storage_keys(&block, &info, &empty_prefix)?;
+					let mut first = true;
 					for k in my_keys {
-						let start = Instant::now();
-						let v = client
-							.child_storage(&block, &info, &k)
-							.expect("Checked above to exist")
-							.ok_or("Value unexpectedly empty")?;
-						record.append(v.0.len(), start.elapsed())?;
-
-						child_count += 1;
-						if child_count % 5000 == 0 {
-							info!("count {}", child_count);
+						if first ||  rng.gen_range(1..=100) <= self.params.read_threshold{
+							first = false;
+							sampled_keys.push((k, Some(info.clone())));
 						}
 					}
 				} else {
-					let start = Instant::now();
-					let v = client
-						.storage(&block, &key)
-						.expect("Checked above to exist")
-						.ok_or("Value unexpectedly empty")?;
-					record.append(v.0.len(), start.elapsed())?;
+					sampled_keys.push((key, None));
+				}
+
+				if &sampled_keys.len() % 5000 == 0 {
+					info!("sampled count {}", &sampled_keys.len());
 				}
 			}
 		}
 
-		info!("ending with {} child keys", child_count);
+		info!("sampled {} keys", sampled_keys.len());
+		sampled_keys.shuffle(&mut rng);
+
+		let mut count = 0u32;
+		for (key, option) in sampled_keys {
+			count += 1;
+
+			if let Some(info) = option {
+				let start = Instant::now();
+				let v = client
+					.child_storage(&block, &info, &key)
+					.expect("Checked above to exist")
+					.ok_or("Value unexpectedly empty")?;
+				record.append(v.0.len(), start.elapsed())?;
+
+			} else {
+				let start = Instant::now();
+				let v = client
+					.storage(&block, &key)
+					.expect("Checked above to exist")
+					.ok_or("Value unexpectedly empty")?;
+				record.append(v.0.len(), start.elapsed())?;
+			}
+
+			if count % 5000 == 0 {
+				info!("count {}", count);
+			}
+		}
+
 		Ok(record)
 	}
 }
