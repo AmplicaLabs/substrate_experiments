@@ -24,7 +24,7 @@ use sp_core::storage::StorageKey;
 use sp_database::{ColumnId, Database};
 use sp_runtime::traits::{Block as BlockT, HashFor};
 use sp_state_machine::Storage;
-use sp_storage::StateVersion;
+use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
 
 use clap::{Args, Parser};
 use log::{debug, info};
@@ -100,6 +100,10 @@ pub struct StorageParams {
 	#[clap(long, default_value = "0")]
 	pub state_cache_size: usize,
 
+	/// Include child trees in benchmark.
+	#[clap(long)]
+	pub include_child_trees: bool,
+
 	/// warmup threshold percentage [1-100]
 	#[clap(long, default_value = "100")]
 	pub warmup_threshold: u32,
@@ -132,9 +136,9 @@ impl StorageCmd {
 
 		let block_id = BlockId::<Block>::Number(client.usage_info().chain.best_number);
 		template.set_block_number(block_id.to_string());
+		self.bench_warmup(&client)?;
 
 		if !self.params.skip_read {
-			self.bench_warmup(&client)?;
 			let record = self.bench_read(client.clone())?;
 			if let Some(path) = &self.params.json_read_path {
 				record.save_json(&cfg, path, "read")?;
@@ -146,7 +150,6 @@ impl StorageCmd {
 		template.write(&self.params.weight_params.weight_path, &self.params.template_path)?;
 
 		if !self.params.skip_write {
-			self.bench_warmup(&client)?;
 			let record = self.bench_write(client, db, storage)?;
 			if let Some(path) = &self.params.json_write_path {
 				record.save_json(&cfg, path, "write")?;
@@ -166,6 +169,16 @@ impl StorageCmd {
 			1 => StateVersion::V1,
 			_ => unreachable!("Clap set to only allow 0 and 1"),
 		}
+	}
+
+	/// Returns Some if child node and None if regular
+	pub(crate) fn is_child_key(&self, key: Vec<u8>) -> Option<ChildInfo> {
+		if let Some((ChildType::ParentKeyId, storage_key)) =
+			ChildType::from_prefixed_key(&PrefixedStorageKey::new(key))
+		{
+			return Some(ChildInfo::new_default(storage_key))
+		}
+		None
 	}
 
 	/// Run some rounds of the (read) benchmark as warmup.

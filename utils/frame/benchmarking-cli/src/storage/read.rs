@@ -15,10 +15,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use frame_support::storage::child::ChildInfo;
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
-use sp_core::storage::StorageKey;
 use sp_runtime::{
 	generic::BlockId,
 	traits::{Block as BlockT, Header as HeaderT},
@@ -45,68 +43,59 @@ impl StorageCmd {
 		let block = BlockId::Number(client.usage_info().chain.best_number);
 
 		info!("Preparing keys from block {}", block);
-		let child_prefix = ":child_storage:default:".as_bytes();
-		// Load all keys and randomly shuffle them.
-		let empty_prefix = StorageKey(Vec::new());
-		let keys = client.storage_keys(&block, &empty_prefix)?;
-		info!("after keys");
+		info!("Reading {} threshold", self.params.read_threshold);
 		let (mut rng, _) = new_rng(None);
-
 		let mut sampled_keys = Vec::new();
 
-		// Interesting part here:
-		// Read all the keys in the database and measure the time it takes to access each.
-		info!("Reading {} keys, {} threshold", keys.len(), self.params.read_threshold);
-		for key in keys {
-			let rand = rng.gen_range(1..=100);
-			if rand <= self.params.read_threshold {
-				if key.as_ref().starts_with(child_prefix) {
-					let trie_id = key.as_ref().strip_prefix(child_prefix);
-					let info = ChildInfo::new_default(trie_id.unwrap());
-					let my_keys = client.child_storage_keys(&block, &info, &empty_prefix)?;
+		let mut count = 0u32;
+		for key in client.storage_keys_iter(&block, None, None)? {
+			match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
+				(true, Some(info)) => {
+					// child tree key
 					let mut first = true;
-					for k in my_keys {
+					for ck in client.child_storage_keys_iter(&block, info.clone(), None, None)? {
 						if first ||  rng.gen_range(1..=100) <= self.params.read_threshold{
 							first = false;
-							sampled_keys.push((k, Some(info.clone())));
+							sampled_keys.push((ck, Some(info.clone())));
 						}
 					}
-				} else {
-					sampled_keys.push((key, None));
-				}
+				},
+				_ => sampled_keys.push((key, None))
+			}
 
-				if &sampled_keys.len() % 5000 == 0 {
-					info!("sampled count {}", &sampled_keys.len());
-				}
+			count += 1;
+			if count % 10_000 == 0 {
+				info!("Read {}", count);
 			}
 		}
 
 		info!("sampled {} keys", sampled_keys.len());
 		sampled_keys.shuffle(&mut rng);
 
-		let mut count = 0u32;
+		count = 0;
 		for (key, option) in sampled_keys {
-			count += 1;
-
-			if let Some(info) = option {
-				let start = Instant::now();
-				let v = client
-					.child_storage(&block, &info, &key)
-					.expect("Checked above to exist")
-					.ok_or("Value unexpectedly empty")?;
-				record.append(v.0.len(), start.elapsed())?;
-
-			} else {
-				let start = Instant::now();
-				let v = client
-					.storage(&block, &key)
-					.expect("Checked above to exist")
-					.ok_or("Value unexpectedly empty")?;
-				record.append(v.0.len(), start.elapsed())?;
+			match (self.params.include_child_trees, option) {
+				(true, Some(info)) => {
+					let start = Instant::now();
+					let v = client
+						.child_storage(&block, &info, &key)
+						.expect("Checked above to exist")
+						.ok_or("Value unexpectedly empty")?;
+					record.append(v.0.len(), start.elapsed())?;
+				},
+				_ => {
+					let start = Instant::now();
+					let v = client
+						.storage(&block, &key)
+						.expect("Checked above to exist")
+						.ok_or("Value unexpectedly empty")?;
+					record.append(v.0.len(), start.elapsed())?;
+				}
 			}
 
-			if count % 5000 == 0 {
-				info!("count {}", count);
+			count += 1;
+			if count % 10_000 == 0 {
+				info!("benchmarked {}", count);
 			}
 		}
 

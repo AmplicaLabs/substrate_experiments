@@ -22,7 +22,6 @@ use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::{DbHash, DbState};
 use sp_api::StateBackend;
 use sp_blockchain::HeaderBackend;
-use sp_core::storage::StorageKey;
 use sp_database::{ColumnId, Transaction};
 use sp_runtime::{
 	generic::BlockId,
@@ -35,7 +34,7 @@ use std::{
 	sync::Arc,
 	time::{Duration, Instant},
 };
-use sp_storage::{well_known_keys::DEFAULT_CHILD_STORAGE_KEY_PREFIX, ChildInfo, StateVersion};
+use sp_storage::{ChildInfo, StateVersion};
 
 use super::cmd::StorageCmd;
 use crate::shared::{new_rng, BenchRecord};
@@ -69,26 +68,21 @@ impl StorageCmd {
 		let kvs = trie.pairs_limit(&mut rng, self.params.write_threshold.try_into().unwrap());
 		info!("pairs are ready len={}", kvs.len());
 
-		let empty_prefix = StorageKey(Vec::new());
-		let mut sampled_keys = Vec::new();
+		let mut sampled_keys = Vec::with_capacity(kvs.len());
 		// Generate all random values first; Make sure there are no collisions with existing
 		// db entries, so we can rollback all additions without corrupting existing entries.
 		for (k, original_v) in kvs {
-			if k.starts_with(DEFAULT_CHILD_STORAGE_KEY_PREFIX) {
-				let trie_id = k
-					.strip_prefix(DEFAULT_CHILD_STORAGE_KEY_PREFIX)
-					.expect("Checked above to exist");
-				let info = ChildInfo::new_default(trie_id);
-				let my_keys = client.child_storage_keys(&block, &info, &empty_prefix)?;
-				let mut first = true;
-				for k in my_keys {
-					if first ||  rng.gen_range(1..=100) <= self.params.read_threshold{
-						first = false;
-						sampled_keys.push((k.0, 4096, Some(info.clone())));
+			match (self.params.include_child_trees, self.is_child_key(k.to_vec())) {
+				(true, Some(info)) => {
+					let mut first = true;
+					for ck in client.child_storage_keys_iter(&block, info.clone(), None, None)? {
+						if first ||  rng.gen_range(1..=100) <= self.params.write_threshold{
+							first = false;
+							sampled_keys.push((ck.0, 4096, Some(info.clone()))); // TODO hardcoded
+						}
 					}
-				}
-			} else {
-				sampled_keys.push((k.into(), original_v.len(), None));
+				},
+				_ => sampled_keys.push((k.into(), original_v.len(), None))
 			}
 		}
 
@@ -98,9 +92,10 @@ impl StorageCmd {
 
 		let mut count = 0u64;
 		// Write each value in one commit.
-		for (k, sz, option) in sampled_keys.iter() {
-			let mut new_v = vec![0; *sz];
-			loop {
+		for (k, sz, option) in sampled_keys {
+			let mut new_v = vec![0; sz];
+			let mut repeats = 3;
+			while repeats > 0 {
 				// Create a random value to overwrite with.
 				// NOTE: We use a possibly higher entropy than the original value,
 				// could be improved but acts as an over-estimation which is fine for now.
@@ -116,6 +111,12 @@ impl StorageCmd {
 				) {
 					break
 				}
+				repeats -= 1;
+			}
+
+			if repeats == 0 {
+				info!("failed {:x?}", k.clone());
+				continue;
 			}
 
 			// Write each value in one commit.
@@ -131,8 +132,8 @@ impl StorageCmd {
 			record.append(size, duration)?;
 
 			count += 1;
-			if count % 100_000 == 0 {
-				info!("{}", count)
+			if count % 10_000 == 0 {
+				info!("written {}", count)
 			}
 		}
 
