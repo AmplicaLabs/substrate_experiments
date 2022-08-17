@@ -31,7 +31,7 @@ use log::{debug, info};
 use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
-use std::{fmt::Debug, path::PathBuf, sync::Arc};
+use std::{fmt, fmt::Debug, path::PathBuf, sync::Arc, time::Duration};
 
 use super::template::TemplateData;
 use crate::shared::{new_rng, HostInfoParams, WeightParams};
@@ -115,6 +115,10 @@ pub struct StorageParams {
 	/// read threshold [1-100]
 	#[clap(long, default_value = "100")]
 	pub read_threshold: u32,
+
+	/// Size of outliers to track
+	#[clap(long, default_value = "100")]
+	pub outliers_size: usize,
 }
 
 impl StorageCmd {
@@ -205,6 +209,8 @@ impl StorageCmd {
 				keys.len(),
 				self.params.warmup_threshold
 			);
+
+			let mut count = 0;
 			for key in keys.as_slice() {
 				let rand = rng.gen_range(1..=100);
 				if rand <= self.params.warmup_threshold {
@@ -214,6 +220,11 @@ impl StorageCmd {
 						.ok_or("Value unexpectedly empty");
 
 					debug!("Warmup {}", hex::encode(key));
+				}
+
+				count += 1;
+				if count % 100_000 == 0 {
+					info!("warming {}", count);
 				}
 			}
 		}
@@ -239,5 +250,29 @@ impl CliConfiguration for StorageCmd {
 
 	fn state_cache_size(&self) -> Result<usize> {
 		Ok(self.params.state_cache_size)
+	}
+}
+
+#[derive(Eq, Ord, PartialEq, PartialOrd)]
+pub struct BenchNode {
+	pub d: Duration,
+	pub sz: usize,
+	pub key: Vec<u8>,
+	pub info: Option<ChildInfo>,
+}
+
+impl fmt::Debug for BenchNode {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match &self.info {
+			Some(i) => write!(
+				f,
+				"{:?}, {:?}, {:?}${:?}",
+				self.d,
+				self.sz,
+				hex::encode(i.keyspace()),
+				hex::encode(self.key.clone())
+			),
+			None => write!(f, "{:?}, {:?}, {:?}", self.d, self.sz, hex::encode(self.key.clone())),
+		}
 	}
 }

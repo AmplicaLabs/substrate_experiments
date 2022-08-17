@@ -16,6 +16,7 @@
 // limitations under the License.
 
 use log::{info, trace};
+use min_max_heap::MinMaxHeap;
 use rand::prelude::*;
 use sc_cli::Result;
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
@@ -28,16 +29,19 @@ use sp_runtime::{
 	traits::{Block as BlockT, HashFor, Header as HeaderT},
 };
 use sp_state_machine::backend::Sampling;
+use sp_storage::{ChildInfo, StateVersion};
 use sp_trie::PrefixedMemoryDB;
 use std::{
 	fmt::Debug,
 	sync::Arc,
 	time::{Duration, Instant},
 };
-use sp_storage::{ChildInfo, StateVersion};
 
 use super::cmd::StorageCmd;
-use crate::shared::{new_rng, BenchRecord};
+use crate::{
+	shared::{new_rng, BenchRecord},
+	storage::cmd::BenchNode,
+};
 
 impl StorageCmd {
 	/// Benchmarks the time it takes to write a single Storage item.
@@ -54,6 +58,7 @@ impl StorageCmd {
 		BA: ClientBackend<Block>,
 		C: UsageProvider<Block> + HeaderBackend<Block> + StorageProvider<Block, BA>,
 	{
+		let mut max_heap = MinMaxHeap::<BenchNode>::with_capacity(self.params.outliers_size);
 		// Store the time that it took to write each value.
 		let mut record = BenchRecord::default();
 
@@ -76,13 +81,13 @@ impl StorageCmd {
 				(true, Some(info)) => {
 					let mut first = true;
 					for ck in client.child_storage_keys_iter(&block, info.clone(), None, None)? {
-						if first ||  rng.gen_range(1..=100) <= self.params.write_threshold{
+						if first || rng.gen_range(1..=100) <= self.params.write_threshold {
 							first = false;
 							sampled_keys.push((ck.0, 4096, Some(info.clone()))); // TODO hardcoded
 						}
 					}
 				},
-				_ => sampled_keys.push((k.into(), original_v.len(), None))
+				_ => sampled_keys.push((k.into(), original_v.len(), None)),
 			}
 		}
 
@@ -116,7 +121,7 @@ impl StorageCmd {
 
 			if repeats == 0 {
 				info!("failed {:x?}", k.clone());
-				continue;
+				continue
 			}
 
 			// Write each value in one commit.
@@ -131,10 +136,25 @@ impl StorageCmd {
 			)?;
 			record.append(size, duration)?;
 
+			max_heap.push(BenchNode {
+				d: duration,
+				sz: size,
+				key: k.to_vec(),
+				info: option.clone(),
+			});
+
+			if max_heap.len() > self.params.outliers_size {
+				max_heap.pop_min();
+			}
+
 			count += 1;
 			if count % 10_000 == 0 {
 				info!("written {}", count)
 			}
+		}
+
+		while !max_heap.is_empty() {
+			info!("{:?}", max_heap.pop_max());
 		}
 
 		Ok(record)

@@ -23,11 +23,15 @@ use sp_runtime::{
 };
 
 use log::info;
+use min_max_heap::MinMaxHeap;
 use rand::prelude::*;
 use std::{fmt::Debug, sync::Arc, time::Instant};
 
 use super::cmd::StorageCmd;
-use crate::shared::{new_rng, BenchRecord};
+use crate::{
+	shared::{new_rng, BenchRecord},
+	storage::cmd::BenchNode,
+};
 
 impl StorageCmd {
 	/// Benchmarks the time it takes to read a single Storage item.
@@ -39,6 +43,7 @@ impl StorageCmd {
 		BA: ClientBackend<B>,
 		<<B as BlockT>::Header as HeaderT>::Number: From<u32>,
 	{
+		let mut max_heap = MinMaxHeap::<BenchNode>::with_capacity(self.params.outliers_size);
 		let mut record = BenchRecord::default();
 		let block = BlockId::Number(client.usage_info().chain.best_number);
 
@@ -49,18 +54,22 @@ impl StorageCmd {
 
 		let mut count = 0u32;
 		for key in client.storage_keys_iter(&block, None, None)? {
-			match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
-				(true, Some(info)) => {
-					// child tree key
-					let mut first = true;
-					for ck in client.child_storage_keys_iter(&block, info.clone(), None, None)? {
-						if first ||  rng.gen_range(1..=100) <= self.params.read_threshold{
-							first = false;
-							sampled_keys.push((ck, Some(info.clone())));
+			if rng.gen_range(1..=100) <= self.params.read_threshold {
+				match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
+					(true, Some(info)) => {
+						// child tree key
+						let mut first = true;
+						for ck in
+							client.child_storage_keys_iter(&block, info.clone(), None, None)?
+						{
+							if first || rng.gen_range(1..=100) <= self.params.read_threshold {
+								first = false;
+								sampled_keys.push((ck, Some(info.clone())));
+							}
 						}
-					}
-				},
-				_ => sampled_keys.push((key, None))
+					},
+					_ => sampled_keys.push((key, None)),
+				}
 			}
 
 			count += 1;
@@ -81,7 +90,15 @@ impl StorageCmd {
 						.child_storage(&block, &info, &key)
 						.expect("Checked above to exist")
 						.ok_or("Value unexpectedly empty")?;
-					record.append(v.0.len(), start.elapsed())?;
+					let duration = start.elapsed();
+					record.append(v.0.len(), duration)?;
+
+					max_heap.push(BenchNode {
+						d: duration,
+						sz: v.0.len(),
+						key: key.clone().0,
+						info: Some(info.clone()),
+					});
 				},
 				_ => {
 					let start = Instant::now();
@@ -89,14 +106,30 @@ impl StorageCmd {
 						.storage(&block, &key)
 						.expect("Checked above to exist")
 						.ok_or("Value unexpectedly empty")?;
-					record.append(v.0.len(), start.elapsed())?;
-				}
+					let duration = start.elapsed();
+					record.append(v.0.len(), duration)?;
+
+					max_heap.push(BenchNode {
+						d: duration,
+						sz: v.0.len(),
+						key: key.clone().0,
+						info: None,
+					});
+				},
+			}
+
+			if max_heap.len() > self.params.outliers_size {
+				max_heap.pop_min();
 			}
 
 			count += 1;
 			if count % 10_000 == 0 {
 				info!("benchmarked {}", count);
 			}
+		}
+
+		while !max_heap.is_empty() {
+			info!("{:?}", max_heap.pop_max());
 		}
 
 		Ok(record)
