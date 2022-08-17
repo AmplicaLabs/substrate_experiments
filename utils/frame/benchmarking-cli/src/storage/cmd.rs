@@ -20,14 +20,13 @@ use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
 use sc_client_db::DbHash;
 use sc_service::Configuration;
 use sp_blockchain::HeaderBackend;
-use sp_core::storage::StorageKey;
 use sp_database::{ColumnId, Database};
 use sp_runtime::traits::{Block as BlockT, HashFor};
 use sp_state_machine::Storage;
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
 
 use clap::{Args, Parser};
-use log::{debug, info};
+use log::info;
 use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
@@ -195,32 +194,38 @@ impl StorageCmd {
 	{
 		info!("Before warmup");
 		let block = BlockId::Number(client.usage_info().chain.best_number);
-		let empty_prefix = StorageKey(Vec::new());
-		let mut keys = client.storage_keys(&block, &empty_prefix)?;
 		let (mut rng, _) = new_rng(None);
-		info!("Before shuffle");
-		keys.shuffle(&mut rng);
+		let mut sampled_keys = Vec::new();
 
 		for i in 0..self.params.warmups {
 			info!(
-				"Warmup round {}/{}  {} keys, {} warmup-threshold",
+				"Warmup round {}/{}  {} warmup-threshold",
 				i + 1,
 				self.params.warmups,
-				keys.len(),
 				self.params.warmup_threshold
 			);
 
 			let mut count = 0;
-			for key in keys.as_slice() {
-				let rand = rng.gen_range(1..=100);
-				if rand <= self.params.warmup_threshold {
-					let _ = client
-						.storage(&block, &key)
-						.expect("Checked above to exist")
-						.ok_or("Value unexpectedly empty");
-
-					debug!("Warmup {}", hex::encode(key));
+			for key in client.storage_keys_iter(&block, None, None)? {
+				if rng.gen_range(1..=100) <= self.params.warmup_threshold {
+					sampled_keys.push(key);
 				}
+
+				count += 1;
+				if count % 100_000 == 0 {
+					info!("warming sampling {}", count);
+				}
+			}
+
+			info!("sampled {} keys", sampled_keys.len());
+			sampled_keys.shuffle(&mut rng);
+
+			count = 0;
+			for key in sampled_keys.as_slice() {
+				let _ = client
+					.storage(&block, &key)
+					.expect("Checked above to exist")
+					.ok_or("Value unexpectedly empty");
 
 				count += 1;
 				if count % 100_000 == 0 {
