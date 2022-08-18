@@ -26,7 +26,7 @@ use sp_state_machine::Storage;
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
 
 use clap::{Args, Parser};
-use log::info;
+use log::{debug, info};
 use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
@@ -208,9 +208,10 @@ impl StorageCmd {
 			let mut count = 0;
 			for key in client.storage_keys_iter(&block, None, None)? {
 				if rng.gen_range(1..=100) <= self.params.warmup_threshold {
-					sampled_keys.push(key);
+					sampled_keys.push(key.clone());
 				}
 
+				debug!("## {:?}", hex::encode(key));
 				count += 1;
 				if count % 100_000 == 0 {
 					info!("warming sampling {}", count);
