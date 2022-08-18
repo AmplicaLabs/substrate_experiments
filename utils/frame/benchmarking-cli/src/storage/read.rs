@@ -51,13 +51,14 @@ impl StorageCmd {
 		info!("Preparing keys from block {}", block);
 		let empty_prefix = StorageKey(Vec::new());
 		let keys = client.storage_keys(&block, &empty_prefix)?;
-		info!("Reading {} keys with {} threshold", keys.len(), self.params.read_threshold);
+		let sz = keys.len() as u32;
+		info!("Reading {} keys with {} threshold", sz, self.params.read_threshold);
 		let (mut rng, _) = new_rng(None);
 		let mut sampled_keys = Vec::new();
 
 		let mut count = 0u32;
 		for key in keys {
-			if rng.gen_range(1..=100) <= self.params.read_threshold {
+			if count <= self.params.read_threshold * sz / 100 {
 				match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
 					(true, Some(info)) => {
 						// child tree key
@@ -75,7 +76,7 @@ impl StorageCmd {
 
 			count += 1;
 			if count % 10_000 == 0 {
-				info!("Read {}", count);
+				info!("Read {} sampled {}", count, sampled_keys.len());
 			}
 		}
 
