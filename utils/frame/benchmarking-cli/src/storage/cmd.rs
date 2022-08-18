@@ -211,12 +211,12 @@ impl StorageCmd {
 
 			let mut count = 0;
 			for key in keys.as_slice() {
-				if rng.gen_range(1..=100) <= self.params.warmup_threshold {
+				// if rng.gen_range(1..=100) <= self.params.warmup_threshold {
 					let _ = client
 						.storage(&block, &key)
 						.expect("Checked above to exist")
 						.ok_or("Value unexpectedly empty");
-				}
+				// }
 
 				debug!("## {:?}", hex::encode(key));
 				count += 1;
