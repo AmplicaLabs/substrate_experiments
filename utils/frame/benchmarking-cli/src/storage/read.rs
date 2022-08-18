@@ -25,6 +25,7 @@ use sp_runtime::{
 use log::info;
 use min_max_heap::MinMaxHeap;
 use rand::prelude::*;
+use sp_storage::StorageKey;
 use std::{fmt::Debug, sync::Arc, time::Instant};
 
 use super::cmd::StorageCmd;
@@ -48,20 +49,20 @@ impl StorageCmd {
 		let block = BlockId::Number(client.usage_info().chain.best_number);
 
 		info!("Preparing keys from block {}", block);
-		info!("Reading {} threshold", self.params.read_threshold);
+		let empty_prefix = StorageKey(Vec::new());
+		let keys = client.storage_keys(&block, &empty_prefix)?;
+		info!("Reading {} keys with {} threshold", keys.len(), self.params.read_threshold);
 		let (mut rng, _) = new_rng(None);
 		let mut sampled_keys = Vec::new();
 
 		let mut count = 0u32;
-		for key in client.storage_keys_iter(&block, None, None)? {
+		for key in keys {
 			if rng.gen_range(1..=100) <= self.params.read_threshold {
 				match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
 					(true, Some(info)) => {
 						// child tree key
 						let mut first = true;
-						for ck in
-							client.child_storage_keys_iter(&block, info.clone(), None, None)?
-						{
+						for ck in client.child_storage_keys(&block, &info, &empty_prefix)? {
 							if first || rng.gen_range(1..=100) <= self.params.read_threshold {
 								first = false;
 								sampled_keys.push((ck, Some(info.clone())));

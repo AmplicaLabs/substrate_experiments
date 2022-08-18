@@ -23,7 +23,7 @@ use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Database};
 use sp_runtime::traits::{Block as BlockT, HashFor};
 use sp_state_machine::Storage;
-use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion};
+use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion, StorageKey};
 
 use clap::{Args, Parser};
 use log::{debug, info};
@@ -194,43 +194,34 @@ impl StorageCmd {
 	{
 		info!("Before warmup");
 		let block = BlockId::Number(client.usage_info().chain.best_number);
+		let empty_prefix = StorageKey(Vec::new());
+		let mut keys = client.storage_keys(&block, &empty_prefix)?;
 		let (mut rng, _) = new_rng(None);
-		let mut sampled_keys = Vec::new();
+		info!("Before shuffle");
+		keys.shuffle(&mut rng);
 
 		for i in 0..self.params.warmups {
 			info!(
-				"Warmup round {}/{}  {} warmup-threshold",
+				"Warmup round {}/{}  {} keys, {} warmup-threshold",
 				i + 1,
 				self.params.warmups,
+				keys.len(),
 				self.params.warmup_threshold
 			);
 
 			let mut count = 0;
-			for key in client.storage_keys_iter(&block, None, None)? {
+			for key in keys.as_slice() {
 				if rng.gen_range(1..=100) <= self.params.warmup_threshold {
-					sampled_keys.push(key.clone());
+					let _ = client
+						.storage(&block, &key)
+						.expect("Checked above to exist")
+						.ok_or("Value unexpectedly empty");
 				}
 
 				debug!("## {:?}", hex::encode(key));
 				count += 1;
 				if count % 100_000 == 0 {
 					info!("warming sampling {}", count);
-				}
-			}
-
-			info!("sampled {} keys", sampled_keys.len());
-			sampled_keys.shuffle(&mut rng);
-
-			count = 0;
-			for key in sampled_keys.as_slice() {
-				let _ = client
-					.storage(&block, &key)
-					.expect("Checked above to exist")
-					.ok_or("Value unexpectedly empty");
-
-				count += 1;
-				if count % 100_000 == 0 {
-					info!("warming {}", count);
 				}
 			}
 		}
