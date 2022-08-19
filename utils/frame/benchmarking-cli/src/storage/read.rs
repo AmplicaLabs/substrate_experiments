@@ -63,15 +63,16 @@ impl StorageCmd {
 				match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
 					(true, Some(info)) => {
 						// child tree key
-						let mut first = true;
-						for ck in
-							client.child_storage_keys_iter(&block, info.clone(), None, None)?
-						{
-							if first || rng.gen_range(1..=100) <= self.params.read_threshold {
-								first = false;
-								sampled_keys.push((ck.clone(), Some(info.clone())));
-							}
-						}
+						sampled_keys.push((StorageKey(hex::decode("e8030000").unwrap()), Some(info.clone())));
+						// let mut first = true;
+						// for ck in
+						// 	client.child_storage_keys_iter(&block, info.clone(), None, None)?
+						// {
+						// 	if first || rng.gen_range(1..=100) <= self.params.read_threshold {
+						// 		first = false;
+						// 		sampled_keys.push((ck.clone(), Some(info.clone())));
+						// 	}
+						// }
 					},
 					_ => sampled_keys.push((key.clone(), None)),
 				}
