@@ -139,10 +139,10 @@ impl StorageCmd {
 
 		let block_id = BlockId::<Block>::Number(client.usage_info().chain.best_number);
 		template.set_block_number(block_id.to_string());
-		self.bench_warmup(&client)?;
+		let keys = self.bench_warmup(&client)?;
 
 		if !self.params.skip_read {
-			let record = self.bench_read(client.clone())?;
+			let record = self.bench_read(client.clone(), keys)?;
 			if let Some(path) = &self.params.json_read_path {
 				record.save_json(&cfg, path, "read")?;
 			}
@@ -186,7 +186,7 @@ impl StorageCmd {
 
 	/// Run some rounds of the (read) benchmark as warmup.
 	/// See `frame_benchmarking_cli::storage::read::bench_read` for detailed comments.
-	fn bench_warmup<B, BA, C>(&self, client: &Arc<C>) -> Result<()>
+	fn bench_warmup<B, BA, C>(&self, client: &Arc<C>) -> Result<Vec<StorageKey>>
 	where
 		C: UsageProvider<B> + StorageProvider<B, BA>,
 		B: BlockT + Debug,
@@ -211,12 +211,12 @@ impl StorageCmd {
 
 			let mut count = 0;
 			for key in keys.as_slice() {
-				// if rng.gen_range(1..=100) <= self.params.warmup_threshold {
+				if rng.gen_range(1..=100) <= self.params.warmup_threshold {
 					let _ = client
 						.storage(&block, &key)
 						.expect("Checked above to exist")
 						.ok_or("Value unexpectedly empty");
-				// }
+				}
 
 				debug!("## {:?}", hex::encode(key));
 				count += 1;
@@ -227,7 +227,7 @@ impl StorageCmd {
 		}
 
 		info!("After warmup");
-		Ok(())
+		Ok(keys)
 	}
 }
 

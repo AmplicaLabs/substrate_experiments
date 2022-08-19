@@ -37,7 +37,11 @@ use crate::{
 impl StorageCmd {
 	/// Benchmarks the time it takes to read a single Storage item.
 	/// Uses the latest state that is available for the given client.
-	pub(crate) fn bench_read<B, BA, C>(&self, client: Arc<C>) -> Result<BenchRecord>
+	pub(crate) fn bench_read<B, BA, C>(
+		&self,
+		client: Arc<C>,
+		keys: Vec<StorageKey>,
+	) -> Result<BenchRecord>
 	where
 		C: UsageProvider<B> + StorageProvider<B, BA>,
 		B: BlockT + Debug,
@@ -49,28 +53,27 @@ impl StorageCmd {
 		let block = BlockId::Number(client.usage_info().chain.best_number);
 
 		info!("Preparing keys from block {}", block);
-		let empty_prefix = StorageKey(Vec::new());
-		let keys = client.storage_keys(&block, &empty_prefix)?;
-		let sz = keys.len() as u32;
-		info!("Reading {} keys with {} threshold", sz, self.params.read_threshold);
+		info!("Reading {} keys with {} threshold", keys.len(), self.params.read_threshold);
 		let (mut rng, _) = new_rng(None);
 		let mut sampled_keys = Vec::new();
 
 		let mut count = 0u32;
 		for key in keys {
-			if count <= self.params.read_threshold * sz / 100 {
+			if rng.gen_range(1..=100) <= self.params.read_threshold {
 				match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
 					(true, Some(info)) => {
 						// child tree key
 						let mut first = true;
-						for ck in client.child_storage_keys(&block, &info, &empty_prefix)? {
+						for ck in
+							client.child_storage_keys_iter(&block, info.clone(), None, None)?
+						{
 							if first || rng.gen_range(1..=100) <= self.params.read_threshold {
 								first = false;
-								sampled_keys.push((ck, Some(info.clone())));
+								sampled_keys.push((ck.clone(), Some(info.clone())));
 							}
 						}
 					},
-					_ => sampled_keys.push((key, None)),
+					_ => sampled_keys.push((key.clone(), None)),
 				}
 			}
 
