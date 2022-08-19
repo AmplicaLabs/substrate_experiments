@@ -27,6 +27,10 @@ use min_max_heap::MinMaxHeap;
 use rand::prelude::*;
 use sp_storage::StorageKey;
 use std::{fmt::Debug, sync::Arc, time::Instant};
+use sc_client_db::{DbHash, DbState};
+use sp_blockchain::HeaderBackend;
+use sp_runtime::traits::HashFor;
+use sp_state_machine::backend::Sampling;
 
 use super::cmd::StorageCmd;
 use crate::{
@@ -37,45 +41,49 @@ use crate::{
 impl StorageCmd {
 	/// Benchmarks the time it takes to read a single Storage item.
 	/// Uses the latest state that is available for the given client.
-	pub(crate) fn bench_read<B, BA, C>(
+	pub(crate) fn bench_read<Block, BA, H, C>(
 		&self,
 		client: Arc<C>,
-		keys: Vec<StorageKey>,
+		storage: Arc<dyn sp_state_machine::Storage<HashFor<Block>>>,
 	) -> Result<BenchRecord>
 	where
-		C: UsageProvider<B> + StorageProvider<B, BA>,
-		B: BlockT + Debug,
-		BA: ClientBackend<B>,
-		<<B as BlockT>::Header as HeaderT>::Number: From<u32>,
+		Block: BlockT<Header = H, Hash = DbHash> + Debug,
+		H: HeaderT<Hash = DbHash>,
+		BA: ClientBackend<Block>,
+		C: UsageProvider<Block> + HeaderBackend<Block> + StorageProvider<Block, BA>,
+		<<Block as BlockT>::Header as HeaderT>::Number: From<u32>,
 	{
 		let mut max_heap = MinMaxHeap::<BenchNode>::with_capacity(self.params.outliers_size);
 		let mut record = BenchRecord::default();
 		let block = BlockId::Number(client.usage_info().chain.best_number);
-
 		info!("Preparing keys from block {}", block);
-		info!("Reading {} keys with {} threshold", keys.len(), self.params.read_threshold);
+
+		let header = client.header(block)?.ok_or("Header not found")?;
+		let original_root = *header.state_root();
+		let trie = DbState::<Block>::new(storage.clone(), original_root);
 		let (mut rng, _) = new_rng(None);
+		let keys = trie.pairs_limit(&mut rng, self.params.read_threshold.try_into().unwrap());
+		info!("Reading {} keys with {} threshold", keys.len(), self.params.read_threshold);
+
 		let mut sampled_keys = Vec::new();
 
 		let mut count = 0u32;
-		for key in keys {
-			if rng.gen_range(1..=100) <= self.params.read_threshold {
-				match (self.params.include_child_trees, self.is_child_key(key.clone().0)) {
-					(true, Some(info)) => {
-						// child tree key
-						sampled_keys.push((StorageKey(hex::decode("e8030000").unwrap()), Some(info.clone())));
-						// let mut first = true;
-						// for ck in
-						// 	client.child_storage_keys_iter(&block, info.clone(), None, None)?
-						// {
-						// 	if first || rng.gen_range(1..=100) <= self.params.read_threshold {
-						// 		first = false;
-						// 		sampled_keys.push((ck.clone(), Some(info.clone())));
-						// 	}
-						// }
-					},
-					_ => sampled_keys.push((key.clone(), None)),
-				}
+		for (key,_) in keys {
+			match (self.params.include_child_trees, self.is_child_key(key.clone())) {
+				(true, Some(info)) => {
+					// child tree key
+					sampled_keys.push((StorageKey(hex::decode("e8030000").unwrap()), Some(info.clone())));
+					// let mut first = true;
+					// for ck in
+					// 	client.child_storage_keys_iter(&block, info.clone(), None, None)?
+					// {
+					// 	if first || rng.gen_range(1..=100) <= self.params.read_threshold {
+					// 		first = false;
+					// 		sampled_keys.push((ck.clone(), Some(info.clone())));
+					// 	}
+					// }
+				},
+				_ => sampled_keys.push((StorageKey(key.clone()), None)),
 			}
 
 			count += 1;

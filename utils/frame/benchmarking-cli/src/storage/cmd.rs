@@ -17,12 +17,12 @@
 
 use sc_cli::{CliConfiguration, DatabaseParams, PruningParams, Result, SharedParams};
 use sc_client_api::{Backend as ClientBackend, StorageProvider, UsageProvider};
-use sc_client_db::DbHash;
+use sc_client_db::{DbHash, DbState};
 use sc_service::Configuration;
 use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Database};
 use sp_runtime::traits::{Block as BlockT, HashFor};
-use sp_state_machine::Storage;
+use sp_state_machine::{Storage};
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion, StorageKey};
 
 use clap::{Args, Parser};
@@ -31,6 +31,8 @@ use rand::prelude::*;
 use serde::Serialize;
 use sp_runtime::generic::BlockId;
 use std::{fmt, fmt::Debug, path::PathBuf, sync::Arc, time::Duration};
+use sp_api::HeaderT;
+use sp_state_machine::backend::Sampling;
 
 use super::template::TemplateData;
 use crate::shared::{new_rng, HostInfoParams, WeightParams};
@@ -139,10 +141,10 @@ impl StorageCmd {
 
 		let block_id = BlockId::<Block>::Number(client.usage_info().chain.best_number);
 		template.set_block_number(block_id.to_string());
-		let keys = self.bench_warmup(&client)?;
+		self.bench_warmup(&client, storage.clone())?;
 
 		if !self.params.skip_read {
-			let record = self.bench_read(client.clone(), keys)?;
+			let record = self.bench_read(client.clone(), storage.clone())?;
 			if let Some(path) = &self.params.json_read_path {
 				record.save_json(&cfg, path, "read")?;
 			}
@@ -153,7 +155,7 @@ impl StorageCmd {
 		template.write(&self.params.weight_params.weight_path, &self.params.template_path)?;
 
 		if !self.params.skip_write {
-			let record = self.bench_write(client, db, storage)?;
+			let record = self.bench_write(client, db, storage.clone())?;
 			if let Some(path) = &self.params.json_write_path {
 				record.save_json(&cfg, path, "write")?;
 			}
@@ -186,17 +188,23 @@ impl StorageCmd {
 
 	/// Run some rounds of the (read) benchmark as warmup.
 	/// See `frame_benchmarking_cli::storage::read::bench_read` for detailed comments.
-	fn bench_warmup<B, BA, C>(&self, client: &Arc<C>) -> Result<Vec<StorageKey>>
+	fn bench_warmup<Block, BA, H, C>(&self,
+							  client: &Arc<C>,
+							  storage: Arc<dyn sp_state_machine::Storage<HashFor<Block>>>) -> Result<()>
 	where
-		C: UsageProvider<B> + StorageProvider<B, BA>,
-		B: BlockT + Debug,
-		BA: ClientBackend<B>,
+		Block: BlockT<Header = H, Hash = DbHash> + Debug,
+		H: HeaderT<Hash = DbHash>,
+		BA: ClientBackend<Block>,
+		C: UsageProvider<Block> + HeaderBackend<Block> + StorageProvider<Block, BA>,
 	{
 		info!("Before warmup");
 		let block = BlockId::Number(client.usage_info().chain.best_number);
-		let empty_prefix = StorageKey(Vec::new());
-		let mut keys = client.storage_keys(&block, &empty_prefix)?;
 		let (mut rng, _) = new_rng(None);
+
+		let header = client.header(block)?.ok_or("Header not found")?;
+		let original_root = *header.state_root();
+		let trie = DbState::<Block>::new(storage.clone(), original_root);
+		let mut keys = trie.pairs_limit(&mut rng, self.params.warmup_threshold.try_into().unwrap());
 		info!("Before shuffle");
 		keys.shuffle(&mut rng);
 
@@ -205,18 +213,16 @@ impl StorageCmd {
 				"Warmup round {}/{}  {} keys, {} warmup-threshold",
 				i + 1,
 				self.params.warmups,
-				keys.len(),
+				&keys.len(),
 				self.params.warmup_threshold
 			);
 
 			let mut count = 0;
-			for key in keys.as_slice() {
-				if rng.gen_range(1..=100) <= self.params.warmup_threshold {
-					let _ = client
-						.storage(&block, &key)
-						.expect("Checked above to exist")
-						.ok_or("Value unexpectedly empty");
-				}
+			for (key, _) in &keys {
+				let _ = client
+					.storage(&block, &StorageKey(key.clone()))
+					.expect("Checked above to exist")
+					.ok_or("Value unexpectedly empty");
 
 				debug!("## {:?}", hex::encode(key));
 				count += 1;
@@ -227,7 +233,7 @@ impl StorageCmd {
 		}
 
 		info!("After warmup");
-		Ok(keys)
+		Ok(())
 	}
 }
 
