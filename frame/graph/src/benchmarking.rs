@@ -126,9 +126,9 @@ benchmarks! {
 	// }: _(RawOrigin::Signed(caller), n.into(), 1u64.into())
 
 	follow_child_public {
-		let n in 1..NODES;
 		let p in 0..PAGES;
 		let caller: T::AccountId = whitelisted_caller();
+		let n = 1;
 
 		for i in 0..=NODES {
 			assert_ok!(node_addition::<T>(i));
@@ -144,9 +144,9 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), n.into(), 0u64.into(), permission, p.try_into().unwrap())
 
 	unfollow_child_public {
-		let n in 0..NODES;
 		let p in 0..PAGES;
 		let caller: T::AccountId = whitelisted_caller();
+		let n = 1;
 
 		for i in 0..=NODES {
 			assert_ok!(node_addition::<T>(i));
@@ -161,8 +161,8 @@ benchmarks! {
 	}: _(RawOrigin::Signed(caller), n.into(), 2u64.into(), permission, p.try_into().unwrap())
 
 	private_graph_update {
-		let n in 1..NODES;
 		let p in 0..PAGES;
+		let n in 0..NODES;
 		let caller: T::AccountId = whitelisted_caller();
 		let data: PrivatePage = PrivatePage::try_from(vec![1; 4096]).unwrap();
 
