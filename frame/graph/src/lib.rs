@@ -455,7 +455,7 @@ pub mod pallet {
 		}
 
 		/// child graph public follow
-		#[pallet::weight(T::WeightInfo::follow_child_public(*from_static_id as u32, *page as u32))]
+		#[pallet::weight(T::WeightInfo::follow_child_public(*page as u32))]
 		pub fn follow_child_public(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,
@@ -496,7 +496,7 @@ pub mod pallet {
 		}
 
 		/// child graph public unfollow
-		#[pallet::weight(T::WeightInfo::unfollow_child_public(*from_static_id as u32, *page as u32))]
+		#[pallet::weight(T::WeightInfo::unfollow_child_public(*page as u32))]
 		pub fn unfollow_child_public(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,
@@ -537,7 +537,7 @@ pub mod pallet {
 		}
 
 		/// private graph update
-		#[pallet::weight((0, Pays::No))]
+		#[pallet::weight(T::WeightInfo::private_graph_update(*page as u32))]
 		pub fn private_graph_update(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,
