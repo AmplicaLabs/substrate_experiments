@@ -332,7 +332,7 @@ pub mod pallet {
 		}
 
 		/// follow docs
-		#[pallet::weight(T::WeightInfo::follow_adj(*from_static_id as u32))]
+		#[pallet::weight((0, Pays::No))]
 		pub fn follow_adj(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,
@@ -365,7 +365,7 @@ pub mod pallet {
 		}
 
 		/// unfollow docs
-		#[pallet::weight(T::WeightInfo::unfollow_adj(*from_static_id as u32))]
+		#[pallet::weight((0, Pays::No))]
 		pub fn unfollow_adj(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,
@@ -401,7 +401,7 @@ pub mod pallet {
 		}
 
 		/// follow_2 docs
-		#[pallet::weight(T::WeightInfo::follow_map(*from_static_id as u32))]
+		#[pallet::weight((0, Pays::No))]
 		pub fn follow_map(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,
@@ -429,7 +429,7 @@ pub mod pallet {
 		}
 
 		/// unfollow2 docs
-		#[pallet::weight(T::WeightInfo::unfollow_map(*from_static_id as u32))]
+		#[pallet::weight((0, Pays::No))]
 		pub fn unfollow_map(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,

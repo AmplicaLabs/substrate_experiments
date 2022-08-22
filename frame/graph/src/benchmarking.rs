@@ -55,75 +55,75 @@ benchmarks! {
 		}
 	}: _(RawOrigin::Signed(caller), n.into())
 
-   follow_adj {
-		let n in 2..NODES;
-		let caller: T::AccountId = whitelisted_caller();
-
-		for i in 0..=NODES {
-			assert_ok!(node_addition::<T>(i));
-		}
-
-		for i in 0..=NODES {
-			for j in 2..=FOLLOWS {
-				if i != j {
-					assert_ok!(do_follow_adj::<T>(i,j));
-				}
-			}
-		}
-
-	}: _(RawOrigin::Signed(caller), n.into(), 1u64.into())
-
-	 unfollow_adj {
-		let n in 2..NODES;
-		let caller: T::AccountId = whitelisted_caller();
-
-		for i in 0..=NODES {
-			assert_ok!(node_addition::<T>(i));
-		}
-
-		for i in 0..=NODES {
-			for j in 1..=FOLLOWS {
-				if i != j {
-					assert_ok!(do_follow_adj::<T>(i,j));
-				}
-			}
-		}
-	}: _(RawOrigin::Signed(caller), n.into(), 1u64.into())
-
-   follow_map {
-		let n in 2..NODES;
-		let caller: T::AccountId = whitelisted_caller();
-
-		for i in 0..=NODES {
-			assert_ok!(node_addition::<T>(i));
-		}
-
-		for i in 0..=NODES {
-			for j in 2..=FOLLOWS {
-				if i != j {
-					assert_ok!(do_follow_map::<T>(i,j));
-				}
-			}
-		}
-
-	}: _(RawOrigin::Signed(caller), n.into(), 1u64.into())
-
-	 unfollow_map {
-		let n in 2..NODES;
-		let caller: T::AccountId = whitelisted_caller();
-
-		for i in 0..=NODES {
-			assert_ok!(node_addition::<T>(i));
-		}
-
-		for i in 0..=NODES {
-			for j in 1..=FOLLOWS {
-				if i != j {
-					assert_ok!(do_follow_map::<T>(i,j));
-				}
-			}
-		}
-	}: _(RawOrigin::Signed(caller), n.into(), 1u64.into())
+   // follow_adj {
+	// 	let n in 2..NODES;
+	// 	let caller: T::AccountId = whitelisted_caller();
+   //
+	// 	for i in 0..=NODES {
+	// 		assert_ok!(node_addition::<T>(i));
+	// 	}
+   //
+	// 	for i in 0..=NODES {
+	// 		for j in 2..=FOLLOWS {
+	// 			if i != j {
+	// 				assert_ok!(do_follow_adj::<T>(i,j));
+	// 			}
+	// 		}
+	// 	}
+   //
+	// }: _(RawOrigin::Signed(caller), n.into(), 1u64.into())
+   //
+	//  unfollow_adj {
+	// 	let n in 2..NODES;
+	// 	let caller: T::AccountId = whitelisted_caller();
+   //
+	// 	for i in 0..=NODES {
+	// 		assert_ok!(node_addition::<T>(i));
+	// 	}
+   //
+	// 	for i in 0..=NODES {
+	// 		for j in 1..=FOLLOWS {
+	// 			if i != j {
+	// 				assert_ok!(do_follow_adj::<T>(i,j));
+	// 			}
+	// 		}
+	// 	}
+	// }: _(RawOrigin::Signed(caller), n.into(), 1u64.into())
+   //
+   // follow_map {
+	// 	let n in 2..NODES;
+	// 	let caller: T::AccountId = whitelisted_caller();
+   //
+	// 	for i in 0..=NODES {
+	// 		assert_ok!(node_addition::<T>(i));
+	// 	}
+   //
+	// 	for i in 0..=NODES {
+	// 		for j in 2..=FOLLOWS {
+	// 			if i != j {
+	// 				assert_ok!(do_follow_map::<T>(i,j));
+	// 			}
+	// 		}
+	// 	}
+   //
+	// }: _(RawOrigin::Signed(caller), n.into(), 1u64.into())
+   //
+	//  unfollow_map {
+	// 	let n in 2..NODES;
+	// 	let caller: T::AccountId = whitelisted_caller();
+   //
+	// 	for i in 0..=NODES {
+	// 		assert_ok!(node_addition::<T>(i));
+	// 	}
+   //
+	// 	for i in 0..=NODES {
+	// 		for j in 1..=FOLLOWS {
+	// 			if i != j {
+	// 				assert_ok!(do_follow_map::<T>(i,j));
+	// 			}
+	// 		}
+	// 	}
+	// }: _(RawOrigin::Signed(caller), n.into(), 1u64.into())
 
 	follow_child_public {
 		let n in 1..NODES;
@@ -153,16 +153,23 @@ benchmarks! {
 		}
 		let permission = Permission { data: 1000u16};
 
-		for i in 0..=NODES {
-			for k in 0..=PAGES {
-				for j in 2..=PAGE_SIZE {
-					if i != j {
-						assert_ok!(do_follow_child::<T>(i,j, permission.clone(), k as u16));
-					}
-				}
+		for j in 2..=PAGE_SIZE {
+			if n != j {
+				assert_ok!(do_follow_child::<T>(n,j, permission.clone(), p as u16));
 			}
 		}
 	}: _(RawOrigin::Signed(caller), n.into(), 2u64.into(), permission, p.try_into().unwrap())
+
+	private_graph_update {
+		let n in 1..NODES;
+		let p in 0..PAGES;
+		let caller: T::AccountId = whitelisted_caller();
+		let data: PrivatePage = PrivatePage::try_from(vec![1; 4096]).unwrap();
+
+		let permission = Permission { data: 1000u16};
+
+
+	}: _(RawOrigin::Signed(caller), n.into(), permission, p.try_into().unwrap(), data)
 
 	impl_benchmark_test_suite!(GraphPallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
