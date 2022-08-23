@@ -15,6 +15,7 @@ pub type StorageKey = BoundedVec<u8, ConstU32<4096>>;
 pub type PublicPage = BoundedVec<MessageSourceId, ConstU32<512>>;
 /// Private Page type
 pub type PrivatePage = BoundedVec<u8, ConstU32<4096>>;
+pub static NUMBER_OF_MSA_IN_CHILD_TREE: u8 = 16;
 
 /// graph edge
 #[derive(Clone, Copy, Encode, Decode, PartialEq, RuntimeDebug, TypeInfo, Eq, PartialOrd)]

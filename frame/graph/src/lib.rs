@@ -60,7 +60,7 @@ mod storage;
 mod types;
 
 use codec::Encode;
-use frame_support::{ensure, traits::Get, BoundedVec};
+use frame_support::{ensure, traits::Get, BoundedVec, StorageHasher, Twox64Concat};
 use sp_runtime::DispatchError;
 use sp_std::{convert::TryInto, prelude::*};
 
@@ -74,6 +74,7 @@ pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::print;
 
 	#[pallet::config]
 	pub trait Config: frame_system::Config {
@@ -288,7 +289,12 @@ pub mod pallet {
 							let pp = PublicPage::try_from(list)
 								.map_err(|_| <Error<T>>::TooManyEdges)
 								.unwrap();
-							let key = Pallet::<T>::get_storage_key(&permission, page as u16);
+							let key = Pallet::<T>::get_storage_key(
+								&from_static_id,
+								GraphType::Public,
+								&permission,
+								page as u16,
+							);
 							Storage::<T>::write_public(&from_static_id, &key, Some(pp.into()))
 								.unwrap();
 							list = sp_std::vec::Vec::new();
@@ -299,7 +305,12 @@ pub mod pallet {
 						let pp = PublicPage::try_from(list)
 							.map_err(|_| <Error<T>>::TooManyEdges)
 							.unwrap();
-						let key = Pallet::<T>::get_storage_key(&permission, page as u16);
+						let key = Pallet::<T>::get_storage_key(
+							&from_static_id,
+							GraphType::Public,
+							&permission,
+							page as u16,
+						);
 						Storage::<T>::write_public(&from_static_id, &key, Some(pp.into())).unwrap();
 					}
 				}
@@ -455,7 +466,7 @@ pub mod pallet {
 		}
 
 		/// child graph public follow
-		#[pallet::weight(T::WeightInfo::follow_child_public(*page as u32))]
+		#[pallet::weight(T::WeightInfo::follow_child_public())]
 		pub fn follow_child_public(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,
@@ -468,7 +479,7 @@ pub mod pallet {
 			// self follow is not permitted
 			ensure!(from_static_id != to_static_id, <Error<T>>::SelfFollowNotPermitted);
 
-			let key = Self::get_storage_key(&permission, page);
+			let key = Self::get_storage_key(&from_static_id, GraphType::Public, &permission, page);
 			let perm = Storage::<T>::read_public_graph(&from_static_id, &key.clone());
 
 			let mut edges: Vec<MessageSourceId> = Vec::new();
@@ -496,7 +507,7 @@ pub mod pallet {
 		}
 
 		/// child graph public unfollow
-		#[pallet::weight(T::WeightInfo::unfollow_child_public(*page as u32))]
+		#[pallet::weight(T::WeightInfo::unfollow_child_public())]
 		pub fn unfollow_child_public(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,
@@ -509,7 +520,7 @@ pub mod pallet {
 			// self unfollow is not permitted
 			ensure!(from_static_id != to_static_id, <Error<T>>::SelfFollowNotPermitted);
 
-			let key = Self::get_storage_key(&permission, page);
+			let key = Self::get_storage_key(&from_static_id, GraphType::Public, &permission, page);
 			let perm = Storage::<T>::read_public_graph(&from_static_id, &key.clone());
 			ensure!(perm.is_some(), <Error<T>>::NoSuchEdge);
 
@@ -537,7 +548,7 @@ pub mod pallet {
 		}
 
 		/// private graph update
-		#[pallet::weight(T::WeightInfo::private_graph_update(*page as u32))]
+		#[pallet::weight(T::WeightInfo::private_graph_update(value.len() as u32))]
 		pub fn private_graph_update(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,
@@ -547,7 +558,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let key = Self::get_storage_key(&permission, page);
+			let key = Self::get_storage_key(&from_static_id, GraphType::Private, &permission, page);
 
 			Storage::<T>::write_private(
 				&from_static_id,
@@ -562,7 +573,7 @@ pub mod pallet {
 		}
 
 		/// change page number, used to swap last page number with the page that just got removed
-		#[pallet::weight((0, Pays::No))]
+		#[pallet::weight(T::WeightInfo::change_page_number())]
 		pub fn change_page_number(
 			origin: OriginFor<T>,
 			from_static_id: MessageSourceId,
@@ -573,8 +584,9 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
-			let from_key = Self::get_storage_key(&permission, from_page);
-			let to_key = Self::get_storage_key(&permission, to_page);
+			let from_key =
+				Self::get_storage_key(&from_static_id, graph_type, &permission, from_page);
+			let to_key = Self::get_storage_key(&from_static_id, graph_type, &permission, to_page);
 
 			match graph_type {
 				GraphType::Public => {
@@ -612,10 +624,16 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// get storage key
-	pub fn get_storage_key(permission: &Permission, page: u16) -> StorageKey {
+	pub fn get_storage_key(
+		msa_id: &MessageSourceId,
+		graph: GraphType,
+		permission: &Permission,
+		page: u16,
+	) -> StorageKey {
 		let key = GraphKey { permission: *permission, page };
 		let mut buf: Vec<u8> = Vec::new();
-		buf.extend_from_slice(&key.encode()[..]);
+		buf.extend_from_slice(Storage::<T>::get_child_key_prefix(msa_id, graph).as_slice());
+		buf.extend_from_slice(Twox64Concat::hash(&key.encode()[..]).as_slice());
 		StorageKey::try_from(buf).unwrap()
 	}
 

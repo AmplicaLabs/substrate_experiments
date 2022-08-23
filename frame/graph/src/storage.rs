@@ -1,8 +1,11 @@
-use crate::{Config, GraphKey, GraphType, MessageSourceId, PrivatePage, PublicPage, StorageKey};
+use crate::{
+	Config, GraphKey, GraphType, MessageSourceId, PrivatePage, PublicPage, StorageKey,
+	NUMBER_OF_MSA_IN_CHILD_TREE,
+};
 use codec::Encode;
 use frame_support::{
 	storage::{child, child::ChildInfo, ChildTriePrefixIterator},
-	Identity,
+	Twox64Concat,
 };
 use sp_runtime::{traits::Hash, DispatchError};
 use sp_std::{marker::PhantomData, prelude::*};
@@ -19,7 +22,7 @@ where
 	/// The read is performed from the `msa_id` only. The `address` is not necessary. If the
 	/// contract doesn't store under the given `key` `None` is returned.
 	pub fn read_public_graph(msa_id: &MessageSourceId, key: &StorageKey) -> Option<PublicPage> {
-		let child = Self::get_child_tree(*msa_id, GraphType::Public);
+		let child = Self::get_child_tree(*msa_id);
 		child::get::<PublicPage>(&child, key.as_slice())
 	}
 
@@ -27,8 +30,11 @@ where
 	pub fn public_graph_iter(
 		msa_id: &MessageSourceId,
 	) -> ChildTriePrefixIterator<(GraphKey, PublicPage)> {
-		let child = Self::get_child_tree(*msa_id, GraphType::Public);
-		ChildTriePrefixIterator::<_>::with_prefix_over_key::<Identity>(&child, &[])
+		let child = Self::get_child_tree(*msa_id);
+		ChildTriePrefixIterator::<_>::with_prefix_over_key::<Twox64Concat>(
+			&child,
+			Self::get_child_key_prefix(msa_id, GraphType::Public).as_slice(),
+		)
 	}
 
 	/// Reads a private graph storage
@@ -36,7 +42,7 @@ where
 	/// The read is performed from the `msa_id` only. The `address` is not necessary. If the
 	/// contract doesn't store under the given `key` `None` is returned.
 	pub fn read_private_graph(msa_id: &MessageSourceId, key: &StorageKey) -> Option<PrivatePage> {
-		let child = Self::get_child_tree(*msa_id, GraphType::Private);
+		let child = Self::get_child_tree(*msa_id);
 		child::get::<PrivatePage>(&child, key.as_slice())
 	}
 
@@ -44,8 +50,11 @@ where
 	pub fn private_graph_iter(
 		msa_id: &MessageSourceId,
 	) -> ChildTriePrefixIterator<(GraphKey, PrivatePage)> {
-		let child = Self::get_child_tree(*msa_id, GraphType::Private);
-		ChildTriePrefixIterator::<_>::with_prefix_over_key::<Identity>(&child, &[])
+		let child = Self::get_child_tree(*msa_id);
+		ChildTriePrefixIterator::<_>::with_prefix_over_key::<Twox64Concat>(
+			&child,
+			Self::get_child_key_prefix(msa_id, GraphType::Private).as_slice(),
+		)
 	}
 
 	/// write directly into child tree
@@ -54,7 +63,7 @@ where
 		key: &StorageKey,
 		new_value: Option<PublicPage>,
 	) -> Result<bool, DispatchError> {
-		let child_trie_info = &Self::get_child_tree(*msa_id, GraphType::Public);
+		let child_trie_info = &Self::get_child_tree(*msa_id);
 
 		match &new_value {
 			Some(new_value) => child::put_raw(child_trie_info, &key, new_value.encode().as_ref()),
@@ -70,7 +79,7 @@ where
 		key: &StorageKey,
 		new_value: Option<PrivatePage>,
 	) -> Result<bool, DispatchError> {
-		let child_trie_info = &Self::get_child_tree(*msa_id, GraphType::Private);
+		let child_trie_info = &Self::get_child_tree(*msa_id);
 
 		match &new_value {
 			Some(new_value) => child::put_raw(child_trie_info, &key, new_value.encode().as_ref()),
@@ -80,19 +89,28 @@ where
 		Ok(true)
 	}
 
-	fn get_child_tree(msa_id: MessageSourceId, graph: GraphType) -> ChildInfo {
-		let trie_root = Self::get_graph_key_prefix(msa_id, graph);
+	pub fn get_child_key_prefix(msa_id: &MessageSourceId, graph: GraphType) -> Vec<u8> {
+		let msa_index: u8 =
+			(msa_id % (NUMBER_OF_MSA_IN_CHILD_TREE as MessageSourceId)).try_into().unwrap();
+		let mut buf: Vec<u8> = Vec::new();
+		buf.extend_from_slice(&msa_index.encode()[..]);
+		match graph {
+			GraphType::Public => buf.extend(b"P"),
+			GraphType::Private => buf.extend(b"S"),
+		}
+		buf
+	}
+
+	fn get_child_tree(msa_id: MessageSourceId) -> ChildInfo {
+		let trie_root = Self::get_tree_prefix(msa_id);
 		child::ChildInfo::new_default(T::Hashing::hash(&trie_root[..]).as_ref())
 	}
 
-	fn get_graph_key_prefix(msa_id: MessageSourceId, graph: GraphType) -> Vec<u8> {
+	fn get_tree_prefix(msa_id: MessageSourceId) -> Vec<u8> {
 		let mut k: Vec<u8> = vec![];
+		let tree_number = msa_id / (NUMBER_OF_MSA_IN_CHILD_TREE as MessageSourceId);
 		k.extend(b"graph");
-		k.extend_from_slice(&msa_id.encode()[..]);
-		match graph {
-			GraphType::Public => k.extend(b"P"),
-			GraphType::Private => k.extend(b"S"),
-		}
+		k.extend_from_slice(&tree_number.encode()[..]);
 		k
 	}
 }

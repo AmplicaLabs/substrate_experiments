@@ -52,9 +52,10 @@ use sp_std::marker::PhantomData;
 /// Weight functions needed for pallet_graph.
 pub trait WeightInfo {
 	fn add_node(n: u32, ) -> Weight;
-	fn follow_child_public(p: u32, ) -> Weight;
-	fn unfollow_child_public(p: u32, ) -> Weight;
-	fn private_graph_update(p: u32, ) -> Weight;
+	fn follow_child_public() -> Weight;
+	fn unfollow_child_public() -> Weight;
+	fn private_graph_update(s: u32, ) -> Weight;
+	fn change_page_number() -> Weight;
 }
 
 /// Weights for pallet_graph using the Substrate node and recommended hardware.
@@ -91,8 +92,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: unknown [0xe8031200] (r:1 w:1)
 	// Storage: unknown [0xe8031300] (r:1 w:1)
 	// Storage: unknown [0xe8031400] (r:1 w:1)
-	/// The range of component `p` is `[0, 20]`.
-	fn follow_child_public(_p: u32, ) -> Weight {
+	fn follow_child_public() -> Weight {
 		(77_135_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
@@ -118,8 +118,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: unknown [0xe8031200] (r:1 w:1)
 	// Storage: unknown [0xe8031300] (r:1 w:1)
 	// Storage: unknown [0xe8031400] (r:1 w:1)
-	/// The range of component `p` is `[0, 20]`.
-	fn unfollow_child_public(_p: u32, ) -> Weight {
+	fn unfollow_child_public() -> Weight {
 		(77_195_000 as Weight)
 			.saturating_add(T::DbWeight::get().reads(1 as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
@@ -145,12 +144,17 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 	// Storage: unknown [0xe8031200] (r:0 w:1)
 	// Storage: unknown [0xe8031300] (r:0 w:1)
 	// Storage: unknown [0xe8031400] (r:0 w:1)
-	/// The range of component `p` is `[0, 20]`.
-	fn private_graph_update(p: u32, ) -> Weight {
+	/// The range of component `s` is `[0, 4000]`.
+	fn private_graph_update(_s: u32, ) -> Weight {
 		(24_395_000 as Weight)
-			// Standard Error: 3_000
-			.saturating_add((1_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(T::DbWeight::get().writes(1 as Weight))
+	}
+	// Storage: unknown [0x0150b239a07b522bf914e8030100] (r:1 w:1)
+	// Storage: unknown [0x0150b6ff6f7d467b87a9e8030000] (r:1 w:1)
+	fn change_page_number() -> Weight {
+		(15_000_000 as Weight)
+			.saturating_add(T::DbWeight::get().reads(2 as Weight))
+			.saturating_add(T::DbWeight::get().writes(2 as Weight))
 	}
 }
 
@@ -187,8 +191,7 @@ impl WeightInfo for () {
 	// Storage: unknown [0xe8031200] (r:1 w:1)
 	// Storage: unknown [0xe8031300] (r:1 w:1)
 	// Storage: unknown [0xe8031400] (r:1 w:1)
-	/// The range of component `p` is `[0, 20]`.
-	fn follow_child_public(_p: u32, ) -> Weight {
+	fn follow_child_public() -> Weight {
 		(77_135_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
@@ -214,8 +217,7 @@ impl WeightInfo for () {
 	// Storage: unknown [0xe8031200] (r:1 w:1)
 	// Storage: unknown [0xe8031300] (r:1 w:1)
 	// Storage: unknown [0xe8031400] (r:1 w:1)
-	/// The range of component `p` is `[0, 20]`.
-	fn unfollow_child_public(_p: u32, ) -> Weight {
+	fn unfollow_child_public() -> Weight {
 		(77_195_000 as Weight)
 			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
@@ -241,12 +243,16 @@ impl WeightInfo for () {
 	// Storage: unknown [0xe8031200] (r:0 w:1)
 	// Storage: unknown [0xe8031300] (r:0 w:1)
 	// Storage: unknown [0xe8031400] (r:0 w:1)
-	/// The range of component `p` is `[0, 20]`.
-	/// The range of component `n` is `[0, 1000]`.
-	fn private_graph_update(p: u32,) -> Weight {
+	/// The range of component `s` is `[0, 4000]`.
+	fn private_graph_update(_s: u32,) -> Weight {
 		(24_395_000 as Weight)
-			// Standard Error: 3_000
-			.saturating_add((1_000 as Weight).saturating_mul(p as Weight))
 			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
+	}
+	// Storage: unknown [0x0150b239a07b522bf914e8030100] (r:1 w:1)
+	// Storage: unknown [0x0150b6ff6f7d467b87a9e8030000] (r:1 w:1)
+	fn change_page_number() -> Weight {
+		(15_000_000 as Weight)
+			.saturating_add(RocksDbWeight::get().reads(2 as Weight))
+			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
 	}
 }

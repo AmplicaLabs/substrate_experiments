@@ -25,12 +25,12 @@ use sp_runtime::{
 use log::info;
 use min_max_heap::MinMaxHeap;
 use rand::prelude::*;
-use sp_storage::StorageKey;
-use std::{fmt::Debug, sync::Arc, time::Instant};
 use sc_client_db::{DbHash, DbState};
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::HashFor;
 use sp_state_machine::backend::Sampling;
+use sp_storage::StorageKey;
+use std::{fmt::Debug, sync::Arc, time::Instant};
 
 use super::cmd::StorageCmd;
 use crate::{
@@ -68,20 +68,17 @@ impl StorageCmd {
 		let mut sampled_keys = Vec::new();
 
 		let mut count = 0u32;
-		for (key,_) in keys {
+		for (key, _) in keys {
 			match (self.params.include_child_trees, self.is_child_key(key.clone())) {
 				(true, Some(info)) => {
 					// child tree key
-					sampled_keys.push((StorageKey(hex::decode("e8030000").unwrap()), Some(info.clone())));
-					// let mut first = true;
-					// for ck in
-					// 	client.child_storage_keys_iter(&block, info.clone(), None, None)?
-					// {
-					// 	if first || rng.gen_range(1..=100) <= self.params.read_threshold {
-					// 		first = false;
-					// 		sampled_keys.push((ck.clone(), Some(info.clone())));
-					// 	}
-					// }
+					let mut first = true;
+					for ck in client.child_storage_keys_iter(&block, info.clone(), None, None)? {
+						if first || rng.gen_range(1..=100) <= self.params.read_threshold {
+							first = false;
+							sampled_keys.push((ck.clone(), Some(info.clone())));
+						}
+					}
 				},
 				_ => sampled_keys.push((StorageKey(key.clone()), None)),
 			}
