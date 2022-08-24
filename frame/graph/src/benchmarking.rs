@@ -46,6 +46,22 @@ fn do_follow_child<T: Config>(
 	)
 }
 
+fn do_unfollow_child<T: Config>(
+	from: u32,
+	to: u32,
+	permission: Permission,
+	page: u16,
+) -> DispatchResult {
+	let caller: T::AccountId = whitelisted_caller();
+	GraphPallet::<T>::unfollow_child_public(
+		RawOrigin::Signed(caller).into(),
+		from.into(),
+		to.into(),
+		permission,
+		page,
+	)
+}
+
 benchmarks! {
 	add_node {
 		let n in 1..NODES;
@@ -126,9 +142,7 @@ benchmarks! {
 	// }: _(RawOrigin::Signed(caller), n.into(), 1u64.into())
 
 	follow_child_public {
-		let p in 0..PAGES;
 		let caller: T::AccountId = whitelisted_caller();
-		let n = 1;
 
 		for i in 0..=NODES {
 			assert_ok!(node_addition::<T>(i));
@@ -136,40 +150,45 @@ benchmarks! {
 		let permission = Permission { data: 1000u16};
 
 		for j in 2..=PAGE_SIZE {
-			if n != j {
-				assert_ok!(do_follow_child::<T>(n,j, permission.clone(), p as u16));
-			}
+			assert_ok!(do_follow_child::<T>(1,j, permission.clone(), 0 as u16));
 		}
 
-	}: _(RawOrigin::Signed(caller), n.into(), 0u64.into(), permission, p.try_into().unwrap())
+	}: _(RawOrigin::Signed(caller), 1u64.into(), 0u64.into(), permission, 0.try_into().unwrap())
 
 	unfollow_child_public {
-		let p in 0..PAGES;
 		let caller: T::AccountId = whitelisted_caller();
-		let n = 1;
-
 		for i in 0..=NODES {
 			assert_ok!(node_addition::<T>(i));
 		}
+
 		let permission = Permission { data: 1000u16};
 
 		for j in 2..=PAGE_SIZE {
-			if n != j {
-				assert_ok!(do_follow_child::<T>(n,j, permission.clone(), p as u16));
-			}
+			assert_ok!(do_follow_child::<T>(1,j, permission.clone(), 0 as u16));
 		}
-	}: _(RawOrigin::Signed(caller), n.into(), 2u64.into(), permission, p.try_into().unwrap())
+	}: _(RawOrigin::Signed(caller), 1u64.into(), 2u64.into(), permission, 0.try_into().unwrap())
 
 	private_graph_update {
-		let p in 0..PAGES;
-		let n in 0..NODES;
-		let caller: T::AccountId = whitelisted_caller();
-		let data: PrivatePage = PrivatePage::try_from(vec![1; 4096]).unwrap();
+		let s in 0..PAGE_SIZE * 8;
 
+		let caller: T::AccountId = whitelisted_caller();
+		let data: PrivatePage = PrivatePage::try_from(vec![1; s as usize]).unwrap();
 		let permission = Permission { data: 1000u16};
 
+	}: _(RawOrigin::Signed(caller), 1u64.into(), permission, 0.try_into().unwrap(), data)
 
-	}: _(RawOrigin::Signed(caller), n.into(), permission, p.try_into().unwrap(), data)
+	change_page_number {
+		let caller: T::AccountId = whitelisted_caller();
+		let permission = Permission { data: 1000u16};
+		for j in 2..=PAGE_SIZE {
+			assert_ok!(do_follow_child::<T>(1,j, permission.clone(), 1_u16));
+
+		}
+		assert_ok!(do_follow_child::<T>(1,2, permission.clone(), 0_u16));
+		assert_ok!(do_unfollow_child::<T>(1,2, permission.clone(), 0_u16));
+
+	}: _(RawOrigin::Signed(caller), 1u64.into(), GraphType::Public, permission, 1u16, 0_u16)
 
 	impl_benchmark_test_suite!(GraphPallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
+

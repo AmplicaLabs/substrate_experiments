@@ -22,17 +22,17 @@ use sc_service::Configuration;
 use sp_blockchain::HeaderBackend;
 use sp_database::{ColumnId, Database};
 use sp_runtime::traits::{Block as BlockT, HashFor};
-use sp_state_machine::{Storage};
+use sp_state_machine::Storage;
 use sp_storage::{ChildInfo, ChildType, PrefixedStorageKey, StateVersion, StorageKey};
 
 use clap::{Args, Parser};
 use log::{debug, info};
 use rand::prelude::*;
 use serde::Serialize;
-use sp_runtime::generic::BlockId;
-use std::{fmt, fmt::Debug, path::PathBuf, sync::Arc, time::Duration};
 use sp_api::HeaderT;
+use sp_runtime::generic::BlockId;
 use sp_state_machine::backend::Sampling;
+use std::{fmt, fmt::Debug, path::PathBuf, sync::Arc, time::Duration};
 
 use super::template::TemplateData;
 use crate::shared::{new_rng, HostInfoParams, WeightParams};
@@ -188,9 +188,11 @@ impl StorageCmd {
 
 	/// Run some rounds of the (read) benchmark as warmup.
 	/// See `frame_benchmarking_cli::storage::read::bench_read` for detailed comments.
-	fn bench_warmup<Block, BA, H, C>(&self,
-							  client: &Arc<C>,
-							  storage: Arc<dyn sp_state_machine::Storage<HashFor<Block>>>) -> Result<()>
+	fn bench_warmup<Block, BA, H, C>(
+		&self,
+		client: &Arc<C>,
+		storage: Arc<dyn sp_state_machine::Storage<HashFor<Block>>>,
+	) -> Result<()>
 	where
 		Block: BlockT<Header = H, Hash = DbHash> + Debug,
 		H: HeaderT<Hash = DbHash>,

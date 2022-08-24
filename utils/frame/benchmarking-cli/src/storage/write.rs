@@ -79,14 +79,13 @@ impl StorageCmd {
 		for (k, original_v) in kvs {
 			match (self.params.include_child_trees, self.is_child_key(k.to_vec())) {
 				(true, Some(info)) => {
-					sampled_keys.push((hex::decode("e8030000").unwrap(), 4096, Some(info.clone()))); // TODO hardcoded
-					// let mut first = true;
-					// for ck in client.child_storage_keys_iter(&block, info.clone(), None, None)? {
-					// 	if first || rng.gen_range(1..=100) <= self.params.write_threshold {
-					// 		first = false;
-					// 		sampled_keys.push((ck.0, 4096, Some(info.clone()))); // TODO hardcoded
-					// 	}
-					// }
+					 let mut first = true;
+					 for ck in client.child_storage_keys_iter(&block, info.clone(), None, None)? {
+						if first || rng.gen_range(1..=100) <= self.params.write_threshold	 {
+							first = false;
+							sampled_keys.push((ck.0, 4096, Some(info.clone()))); // TODO hardcoded
+						}
+					 }
 				},
 				_ => sampled_keys.push((k.into(), original_v.len(), None)),
 			}
