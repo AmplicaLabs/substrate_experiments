@@ -278,7 +278,6 @@ pub mod pallet {
 					let mut page = 0u32;
 					let mut list: Vec<MessageSourceId> = sp_std::vec::Vec::new();
 					for e in 0..edges {
-						page = e / page_size;
 						let ed = (n + e + 1) % nodes;
 						let to_static_id = ed as MessageSourceId;
 						list.push(to_static_id);
@@ -291,6 +290,7 @@ pub mod pallet {
 							let key = Pallet::<T>::get_storage_key(&permission, page as u16);
 							Storage::<T>::write_public(&from_static_id, &key, Some(pp.into()))
 								.unwrap();
+							page += 1;
 							list = sp_std::vec::Vec::new();
 						}
 					}
@@ -299,8 +299,8 @@ pub mod pallet {
 						let pp = PublicPage::try_from(list)
 							.map_err(|_| <Error<T>>::TooManyEdges)
 							.unwrap();
-						let key = Pallet::<T>::get_storage_key(&permission, page as u16);
-						Storage::<T>::write_public(&from_static_id, &key, Some(pp.into())).unwrap();
+						let new_key = Pallet::<T>::get_storage_key(&permission, page as u16);
+						Storage::<T>::write_public(&from_static_id, &new_key, Some(pp.into())).unwrap();
 					}
 				}
 			}
