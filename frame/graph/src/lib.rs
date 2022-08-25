@@ -187,7 +187,7 @@ pub mod pallet {
 	///  genesis config
 	#[pallet::genesis_config]
 	pub struct GenesisConfig {
-		pub structure: u8, // 0 = DoubleMap , 1 = Adj list , 2 = child trees
+		pub structure: u8, // 0 = DoubleMap , 1 = Adj list , 2 = child public, 3 = child private
 		pub nodes: u32,
 		pub edges: u32,
 	}
@@ -196,7 +196,7 @@ pub mod pallet {
 	#[cfg(feature = "std")]
 	impl Default for GenesisConfig {
 		fn default() -> Self {
-			Self { structure: 2, nodes: 10_000_000, edges: 300 }
+			Self { structure: 3, nodes: 5_000_000, edges: 300 }
 		}
 	}
 
@@ -204,11 +204,12 @@ pub mod pallet {
 	impl<T: Config> GenesisBuild<T> for GenesisConfig {
 		fn build(&self) {
 			log::info!(
-				"starting genesis structure {} nodes {} edges {} PageSize {}",
+				"starting genesis structure {} nodes {} edges {} PublicPage {} PrivatePage {}",
 				self.structure,
 				self.nodes,
 				self.edges,
-				PublicPage::bound()
+				PublicPage::bound(),
+				PrivatePage::bound(),
 			);
 			let nodes: u32 = self.nodes;
 			let edges: u32 = self.edges;
@@ -217,7 +218,7 @@ pub mod pallet {
 			let page_size = PublicPage::bound() as u32;
 
 			let mut node_count: u64 = 0;
-			if self.structure != 2 {
+			if self.structure < 2 {
 				for n in 0..nodes {
 					if n % 100_000 == 0 {
 						log::info!("Nodes added: {:?}", n);
@@ -274,8 +275,8 @@ pub mod pallet {
 						.map_err(|_| <Error<T>>::TooManyEdges)
 						.unwrap();
 					<GraphAdj<T>>::insert(&from_static_id, &bounded_vec);
-				} else {
-					// child tree
+				} else if self.structure == 2 {
+					// child tree public
 					let mut page = 0u32;
 					let mut list: Vec<MessageSourceId> = sp_std::vec::Vec::new();
 					for e in 0..edges {
@@ -301,7 +302,19 @@ pub mod pallet {
 							.map_err(|_| <Error<T>>::TooManyEdges)
 							.unwrap();
 						let new_key = Pallet::<T>::get_storage_key(&permission, page as u16);
-						Storage::<T>::write_public(&from_static_id, &new_key, Some(pp.into())).unwrap();
+						Storage::<T>::write_public(&from_static_id, &new_key, Some(pp.into()))
+							.unwrap();
+					}
+				} else {
+					// child tree private
+					let pages = (edges * 8 / PrivatePage::bound() as u32) + 1;
+					for p in 0..pages {
+						let value = PrivatePage::try_from(vec![1; PrivatePage::bound()])
+							.map_err(|_| <Error<T>>::TooManyEdges)
+							.unwrap();
+						let key = Pallet::<T>::get_storage_key(&permission, p as u16);
+
+						Storage::<T>::write_private(&from_static_id, &key, Some(value)).unwrap();
 					}
 				}
 			}

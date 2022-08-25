@@ -73,9 +73,7 @@ impl StorageCmd {
 				(true, Some(info)) => {
 					// child tree key
 					let mut first = true;
-					for ck in
-						client.child_storage_keys_iter(&block, info.clone(), None, None)?
-					{
+					for ck in client.child_storage_keys_iter(&block, info.clone(), None, None)? {
 						if first || rng.gen_range(1..=100) <= self.params.read_threshold {
 							first = false;
 							sampled_keys.push((ck.clone(), Some(info.clone())));

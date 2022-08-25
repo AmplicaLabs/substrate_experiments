@@ -191,4 +191,3 @@ benchmarks! {
 
 	impl_benchmark_test_suite!(GraphPallet, crate::mock::new_test_ext(), crate::mock::Test);
 }
-
