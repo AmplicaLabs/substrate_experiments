@@ -204,10 +204,11 @@ pub mod pallet {
 	impl<T: Config> GenesisBuild<T> for GenesisConfig {
 		fn build(&self) {
 			log::info!(
-				"starting genesis structure {} nodes {} edges {}",
+				"starting genesis structure {} nodes {} edges {} PageSize {}",
 				self.structure,
 				self.nodes,
-				self.edges
+				self.edges,
+				PublicPage::bound()
 			);
 			let nodes: u32 = self.nodes;
 			let edges: u32 = self.edges;
