@@ -196,7 +196,7 @@ pub mod pallet {
 	#[cfg(feature = "std")]
 	impl Default for GenesisConfig {
 		fn default() -> Self {
-			Self { structure: 3, nodes: 5_000_000, edges: 300 }
+			Self { structure: 4, nodes: 1_000, edges: 300 }
 		}
 	}
 
@@ -289,7 +289,11 @@ pub mod pallet {
 							let pp = PublicPage::try_from(list)
 								.map_err(|_| <Error<T>>::TooManyEdges)
 								.unwrap();
-							let key = Pallet::<T>::get_storage_key(&permission, page as u16);
+							let key = Pallet::<T>::get_storage_key(
+								GraphType::Public,
+								&permission,
+								page as u16,
+							);
 							Storage::<T>::write_public(&from_static_id, &key, Some(pp.into()))
 								.unwrap();
 							page += 1;
@@ -301,18 +305,36 @@ pub mod pallet {
 						let pp = PublicPage::try_from(list)
 							.map_err(|_| <Error<T>>::TooManyEdges)
 							.unwrap();
-						let new_key = Pallet::<T>::get_storage_key(&permission, page as u16);
+						let new_key = Pallet::<T>::get_storage_key(
+							GraphType::Public,
+							&permission,
+							page as u16,
+						);
 						Storage::<T>::write_public(&from_static_id, &new_key, Some(pp.into()))
 							.unwrap();
 					}
-				} else {
+				} else if self.structure == 3 {
 					// child tree private
 					let pages = (edges * 8 / PrivatePage::bound() as u32) + 1;
 					for p in 0..pages {
 						let value = PrivatePage::try_from(vec![1; PrivatePage::bound()])
 							.map_err(|_| <Error<T>>::TooManyEdges)
 							.unwrap();
-						let key = Pallet::<T>::get_storage_key(&permission, p as u16);
+						let key =
+							Pallet::<T>::get_storage_key(GraphType::Private, &permission, p as u16);
+
+						Storage::<T>::write_private(&from_static_id, &key, Some(value)).unwrap();
+					}
+				} else {
+					// child tree exponential distribution of pages
+					let index = (n as usize) % EXPONENTIAL_DISTRO_PAGES.len();
+					let pages = EXPONENTIAL_DISTRO_PAGES[index];
+					for p in 0..pages {
+						let value = PrivatePage::try_from(vec![1; PrivatePage::bound()])
+							.map_err(|_| <Error<T>>::TooManyEdges)
+							.unwrap();
+						let key =
+							Pallet::<T>::get_storage_key(GraphType::Private, &permission, p as u16);
 
 						Storage::<T>::write_private(&from_static_id, &key, Some(value)).unwrap();
 					}
@@ -482,7 +504,7 @@ pub mod pallet {
 			// self follow is not permitted
 			ensure!(from_static_id != to_static_id, <Error<T>>::SelfFollowNotPermitted);
 
-			let key = Self::get_storage_key(&permission, page);
+			let key = Self::get_storage_key(GraphType::Public, &permission, page);
 			let perm = Storage::<T>::read_public_graph(&from_static_id, &key.clone());
 
 			let mut edges: Vec<MessageSourceId> = Vec::new();
@@ -523,7 +545,7 @@ pub mod pallet {
 			// self unfollow is not permitted
 			ensure!(from_static_id != to_static_id, <Error<T>>::SelfFollowNotPermitted);
 
-			let key = Self::get_storage_key(&permission, page);
+			let key = Self::get_storage_key(GraphType::Public, &permission, page);
 			let perm = Storage::<T>::read_public_graph(&from_static_id, &key.clone());
 			ensure!(perm.is_some(), <Error<T>>::NoSuchEdge);
 
@@ -561,7 +583,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			let sender = ensure_signed(origin)?;
 
-			let key = Self::get_storage_key(&permission, page);
+			let key = Self::get_storage_key(GraphType::Private, &permission, page);
 
 			Storage::<T>::write_private(
 				&from_static_id,
@@ -587,8 +609,8 @@ pub mod pallet {
 		) -> DispatchResult {
 			let _ = ensure_signed(origin)?;
 
-			let from_key = Self::get_storage_key(&permission, from_page);
-			let to_key = Self::get_storage_key(&permission, to_page);
+			let from_key = Self::get_storage_key(graph_type, &permission, from_page);
+			let to_key = Self::get_storage_key(graph_type, &permission, to_page);
 
 			match graph_type {
 				GraphType::Public => {
@@ -626,9 +648,9 @@ impl<T: Config> Pallet<T> {
 	}
 
 	/// get storage key
-	pub fn get_storage_key(permission: &Permission, page: u16) -> StorageKey {
+	pub fn get_storage_key(graph: GraphType, permission: &Permission, page: u16) -> StorageKey {
 		let key = GraphKey { permission: *permission, page };
-		let mut buf: Vec<u8> = Vec::new();
+		let mut buf: Vec<u8> = Storage::<T>::get_child_key_prefix(graph);
 		buf.extend_from_slice(&key.encode()[..]);
 		StorageKey::try_from(buf).unwrap()
 	}

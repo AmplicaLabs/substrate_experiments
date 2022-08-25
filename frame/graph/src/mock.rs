@@ -128,7 +128,7 @@ fn follow_unfollow_child_public() {
 
 		let perm = GraphPallet::read_public_graph_node(
 			1234,
-			GraphPallet::get_storage_key(&friendship, page),
+			GraphPallet::get_storage_key(GraphType::Public, &friendship, page),
 		);
 		assert_eq!(perm, Some(PublicPage::try_from(vec![3, 1240, 2767378]).unwrap()));
 
@@ -146,7 +146,7 @@ fn follow_unfollow_child_public() {
 		));
 		let perm = GraphPallet::read_public_graph_node(
 			1234,
-			GraphPallet::get_storage_key(&friendship, page),
+			GraphPallet::get_storage_key(GraphType::Public, &friendship, page),
 		);
 		assert_eq!(perm, Some(PublicPage::try_from(vec![1240, 2767378]).unwrap()));
 	});
@@ -183,7 +183,7 @@ fn follow_unfollow_child_private() {
 
 		let perm = GraphPallet::read_private_graph_node(
 			1234,
-			GraphPallet::get_storage_key(&friendship, page),
+			GraphPallet::get_storage_key(GraphType::Private, &friendship, page),
 		);
 		assert_eq!(perm, Some(PrivatePage::try_from(vec![1, 2, 3, 4]).unwrap()));
 
@@ -202,7 +202,7 @@ fn follow_unfollow_child_private() {
 
 		let perm = GraphPallet::read_private_graph_node(
 			1234,
-			GraphPallet::get_storage_key(&friendship, page + 1),
+			GraphPallet::get_storage_key(GraphType::Private, &friendship, page + 1),
 		);
 		assert_eq!(perm, None);
 	});
