@@ -196,7 +196,7 @@ pub mod pallet {
 	#[cfg(feature = "std")]
 	impl Default for GenesisConfig {
 		fn default() -> Self {
-			Self { structure: 4, nodes: 1_000, edges: 300 }
+			Self { structure: 5, nodes: 1_000_000, edges: 300 }
 		}
 	}
 
@@ -327,8 +327,13 @@ pub mod pallet {
 					}
 				} else {
 					// child tree exponential distribution of pages
-					let index = (n as usize) % EXPONENTIAL_DISTRO_PAGES.len();
-					let pages = EXPONENTIAL_DISTRO_PAGES[index];
+					let distro = if self.structure == 4 {
+						EXPONENTIAL_DISTRO_PAGES
+					} else {
+						LIMITED_EXPONENTIAL_DISTRO_PAGES
+					};
+					let index = (n as usize) % distro.len();
+					let pages = distro[index];
 					for p in 0..pages {
 						let value = PrivatePage::try_from(vec![1; PrivatePage::bound()])
 							.map_err(|_| <Error<T>>::TooManyEdges)
